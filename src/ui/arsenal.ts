@@ -1,12 +1,13 @@
-import { WEAPONS } from '../weapons/registry';
+import { Weapon } from '../weapons/types';
 
 export function renderArsenal(
   container: HTMLElement,
+  weapons: Weapon[],
   selectedIndex: number,
   onSelect: (i: number) => void
 ): void {
   container.innerHTML = '';
-  WEAPONS.forEach((w, i) => {
+  weapons.forEach((w, i) => {
     const b = document.createElement('button');
     b.className = 'wep' + (i === selectedIndex ? ' on' : '');
     b.innerHTML = w.name + '<small>' + w.sub + '</small>';

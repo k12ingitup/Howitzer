@@ -4,19 +4,17 @@ import { launchVelocity } from './engine/physics';
 import { collidesWithTerrain } from './engine/collision';
 import { WEAPONS } from './weapons/registry';
 import { ActiveProjectile } from './weapons/types';
-import { Tank, applyExplosion, spawnClusterChildren } from './weapons/behaviors';
-import { createMatch, advanceTurn, isMatchOver, winner, recordShotResult } from './game/match';
+import { Tank, applyExplosion, spawnClusterChildren, spawnExplosionParticles } from './weapons/behaviors';
+import { createMatch, advanceTurn, isMatchOver, winner, recordShotResult, consumeWeapon } from './game/match';
 import { MatchState, MatchConfig } from './game/state';
 import { aiChooseShot } from './ai/opponent';
-import { Renderer } from './render/renderer';
+import { Renderer, ScorePopup } from './render/renderer';
 import { Particle } from './render/particles';
 import { syncHUD } from './ui/hud';
 import { renderArsenal } from './ui/arsenal';
 import { setupAimInput } from './input/aim';
-import type { MenuMode } from './ui/menus';
-import type { GameModeChoice } from './ui/menus';
 
-// ---- DOM refs ----
+// DOM refs
 const cv = document.getElementById('cv') as HTMLCanvasElement;
 const ctx = cv.getContext('2d')!;
 const angleEl = document.getElementById('angle') as HTMLInputElement;
@@ -25,9 +23,10 @@ const angleR = document.getElementById('angleR')!;
 const powerR = document.getElementById('powerR')!;
 const fireBtn = document.getElementById('fire') as HTMLButtonElement;
 const overlay = document.getElementById('overlay')!;
+const draftEl = document.getElementById('draft')!;
 const wepsEl = document.getElementById('weps')!;
 
-// ---- Game vars ----
+// Game vars
 let W = 0, H = 0;
 let terrain: Terrain;
 let tanks: Tank[] = [];
@@ -38,37 +37,32 @@ let clusterProjs: ActiveProjectile[] = [];
 let assist = true;
 let tracerMarker: { x: number; y: number } | null = null;
 let tracerTimeout: ReturnType<typeof setTimeout> | null = null;
+let popups: ScorePopup[] = [];
+let turnBanner = { text: '', alpha: 0, timer: 0 };
 const renderer = new Renderer(ctx, () => W, () => H);
 
-// ---- Resize ----
 function resize(): void {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const r = cv.getBoundingClientRect();
   const newW = Math.max(320, Math.floor(r.width));
   const newH = Math.max(240, Math.floor(r.height));
-  const DPR = Math.min(window.devicePixelRatio || 1, 2);
   if (terrain && (newW !== W || newH !== H)) {
     terrain.resize(newW, newH, H);
     for (const t of tanks) {
-      t.x = Math.min(newW - 20, Math.max(20, t.x * newW / W));
+      t.x = Math.min(newW - 20, Math.max(20, Math.round(t.x * newW / W)));
       t.y = terrain.surfaceY(t.x);
     }
   }
   W = newW; H = newH;
-  cv.width = Math.floor(W * DPR);
-  cv.height = Math.floor(H * DPR);
-  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  cv.width = Math.floor(W * dpr);
+  cv.height = Math.floor(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 window.addEventListener('resize', resize);
 
-// ---- Arsenal ----
-function doRenderArsenal(): void {
-  renderArsenal(wepsEl, match.selectedWeapon[match.turn], (i: number) => {
-    match.selectedWeapon[match.turn] = i;
-    doRenderArsenal();
-  });
-}
+type MenuMode = 'cpu-easy' | 'cpu-hard' | 'pvp';
+type GameModeChoice = 'score' | 'annihilation';
 
-// ---- New game ----
 function newGame(menuMode: MenuMode, gameMode: GameModeChoice): void {
   const cpu = menuMode.startsWith('cpu');
   const difficulty = menuMode === 'cpu-hard' ? 'hard' : 'easy';
@@ -83,6 +77,8 @@ function newGame(menuMode: MenuMode, gameMode: GameModeChoice): void {
   proj = null;
   clusterProjs = [];
   tracerMarker = null;
+  popups = [];
+  turnBanner = { text: '', alpha: 0, timer: 0 };
   renderer.shake = 0;
 
   terrain = new Terrain(W, H);
@@ -90,11 +86,15 @@ function newGame(menuMode: MenuMode, gameMode: GameModeChoice): void {
 
   const lx = Math.round(W * (0.10 + Math.random() * 0.06));
   const rx = Math.round(W * (0.84 + Math.random() * 0.06));
+  // Flatten platform under each tank
+  terrain.flattenAt(lx, 32);
+  terrain.flattenAt(rx, 32);
+
   tanks = [
-    { x: lx, y: terrain.surfaceY(lx), hp: 100, score: 0, color: '#ff7a3c', name: 'Player 1', ai: false, skill: 1, dir: 1 },
+    { x: lx, y: terrain.surfaceY(lx), hp: 100, score: 0, color: CFG.P1_COLOR, name: 'Player 1', ai: false, skill: 1, dir: 1 },
     {
       x: rx, y: terrain.surfaceY(rx), hp: 100, score: 0,
-      color: '#3ad9c4',
+      color: CFG.P2_COLOR,
       name: cpu ? (difficulty === 'hard' ? 'Veteran' : 'Cadet') : 'Player 2',
       ai: cpu,
       skill: difficulty === 'hard' ? 0.85 : 0.45,
@@ -103,11 +103,40 @@ function newGame(menuMode: MenuMode, gameMode: GameModeChoice): void {
   ];
 
   overlay.classList.add('hidden');
+  showDraft();
+}
+
+// ---- Draft screen ----
+function showDraft(): void {
+  match.phase = 'draft';
+  const p1El = document.getElementById('draft-p1-name')!;
+  const p2El = document.getElementById('draft-p2-name')!;
+  const w1El = document.getElementById('draft-p1-weapons')!;
+  const w2El = document.getElementById('draft-p2-weapons')!;
+  p1El.textContent = tanks[0].name;
+  p2El.textContent = tanks[1].name;
+  p1El.style.color = CFG.P1_COLOR;
+  p2El.style.color = CFG.P2_COLOR;
+  w1El.innerHTML = match.arsenals[0].map(w => `<li>${w.name}<span>${w.sub}</span></li>`).join('');
+  w2El.innerHTML = match.arsenals[1].map(w => `<li>${w.name}<span>${w.sub}</span></li>`).join('');
+  draftEl.classList.remove('hidden');
+}
+
+document.getElementById('draft-start')!.addEventListener('click', () => {
+  draftEl.classList.add('hidden');
   setAngle(50); setPower(55);
-  match.selectedWeapon = [0, 0];
   doRenderArsenal();
   syncMatchHUD();
   beginTurn();
+});
+
+// ---- Arsenal ----
+function doRenderArsenal(): void {
+  const hand = match.arsenals[match.turn];
+  renderArsenal(wepsEl, hand, match.selectedWeapon[match.turn], i => {
+    match.selectedWeapon[match.turn] = i;
+    doRenderArsenal();
+  });
 }
 
 // ---- Turn flow ----
@@ -118,21 +147,29 @@ function beginTurn(): void {
   doRenderArsenal();
   syncMatchHUD();
   fireBtn.disabled = false;
-  if (t.ai) {
-    fireBtn.disabled = true;
-    setTimeout(doAITurn, 650);
-  }
+  if (t.ai) { fireBtn.disabled = true; setTimeout(doAITurn, 800); }
+}
+
+function showTurnTransition(nextTurnName: string, cb: () => void): void {
+  match.phase = 'transition';
+  turnBanner.text = nextTurnName + "'s turn";
+  turnBanner.alpha = 1;
+  turnBanner.timer = 1200;
+  syncMatchHUD();
+  setTimeout(() => {
+    turnBanner.alpha = 0;
+    cb();
+  }, 1200);
 }
 
 function endTurn(consumedShot: boolean): void {
-  if (isMatchOver(match)) {
-    return doGameOver();
-  }
-  advanceTurn(match, consumedShot);
-  if (isMatchOver(match)) {
-    return doGameOver();
-  }
-  beginTurn();
+  if (consumedShot) consumeWeapon(match);
+  if (isMatchOver(match)) return doGameOver();
+  advanceTurn(match);
+  if (isMatchOver(match)) return doGameOver();
+  const nextName = tanks[match.turn].name;
+  // Only show transition banner for human→human or human→AI
+  showTurnTransition(nextName, beginTurn);
 }
 
 function doGameOver(): void {
@@ -145,113 +182,60 @@ function doGameOver(): void {
   overlay.querySelector('p')!.textContent =
     match.config.mode === 'score'
       ? `Final score: ${match.scores[0]} – ${match.scores[1]}`
-      : (w === -1 ? 'Mutual destruction!' : 'Direct hit. Want a rematch?');
+      : (w === -1 ? 'Mutual destruction!' : 'Want a rematch?');
   overlay.classList.remove('hidden');
   fireBtn.disabled = true;
 }
 
-// ---- Firing ----
+// ---- Controls ----
 function setAngle(v: number): void {
   v = Math.max(0, Math.min(180, Math.round(v)));
-  angleEl.value = String(v);
-  angleR.textContent = v + '°';
+  angleEl.value = String(v); angleR.textContent = v + '°';
 }
 function setPower(v: number): void {
   v = Math.max(5, Math.min(100, Math.round(v)));
-  powerEl.value = String(v);
-  powerR.textContent = String(v);
+  powerEl.value = String(v); powerR.textContent = String(v);
 }
 
 angleEl.addEventListener('input', () => setAngle(+angleEl.value));
 powerEl.addEventListener('input', () => setPower(+powerEl.value));
 
+function currentWeapon() {
+  return match.arsenals[match.turn][match.selectedWeapon[match.turn]];
+}
+
 function doFire(): void {
   if (match.phase !== 'aim') return;
+  const weapon = currentWeapon();
+  if (!weapon) return;
   const angleDeg = +angleEl.value;
   const power = +powerEl.value;
-  const weaponIdx = match.selectedWeapon[match.turn];
-  const weapon = WEAPONS[weaponIdx];
   const t = tanks[match.turn];
   const rad = angleDeg * Math.PI / 180;
   const vel = launchVelocity(angleDeg, power);
   proj = {
     x: t.x + Math.cos(rad) * 22,
     y: t.y - 14 - Math.sin(rad) * 22,
-    vx: vel.vx,
-    vy: vel.vy,
-    weapon,
-    owner: match.turn,
-    trail: [],
-    dead: false,
-    off: false,
-    childrenSpawned: false,
+    vx: vel.vx, vy: vel.vy,
+    weapon, owner: match.turn,
+    trail: [], dead: false, off: false, childrenSpawned: false,
   };
   match.phase = 'flight';
   fireBtn.disabled = true;
   syncMatchHUD();
 }
-
 fireBtn.addEventListener('click', doFire);
 
-// ---- Physics per-frame ----
-function stepFlight(dt: number): void {
-  if (!proj) return;
-  const p = proj;
-  const h = dt / CFG.SUBSTEPS;
-  for (let s = 0; s < CFG.SUBSTEPS; s++) {
-    p.vy += CFG.GRAV * h;
-    p.vx += match.wind * h;
-    p.x += p.vx * h;
-    p.y += p.vy * h;
-
-    if (p.weapon.kind === 'cluster' && !p.childrenSpawned && p.vy > 0 && p.y < H * 0.5) {
-      p.childrenSpawned = true;
-      clusterProjs = spawnClusterChildren(p);
-      p.dead = true;
-      break;
-    }
-
-    if (hitTest(p)) { p.dead = true; break; }
-  }
-  if (p.trail.length > 26) p.trail.shift();
-  p.trail.push({ x: p.x, y: p.y });
-
-  if (p.dead) {
-    if (clusterProjs.length > 0) {
-      proj = null;
-      match.phase = 'flight-cluster';
-    } else {
-      finishShot(p);
-    }
-  }
-}
-
-function stepClusters(dt: number): void {
-  const h = dt / CFG.SUBSTEPS;
-  for (const p of clusterProjs) {
-    if (p.dead) continue;
-    for (let s = 0; s < CFG.SUBSTEPS; s++) {
-      p.vy += CFG.GRAV * h;
-      p.vx += match.wind * h;
-      p.x += p.vx * h;
-      p.y += p.vy * h;
-      if (hitTest(p)) {
-        p.dead = true;
-        if (!p.off) onImpact(p.x, p.y, p);
-        break;
-      }
-    }
-    p.trail.push({ x: p.x, y: p.y });
-    if (p.trail.length > 16) p.trail.shift();
-  }
-  if (clusterProjs.every(p => p.dead)) {
-    clusterProjs = [];
-    afterImpact(true);
-  }
-}
-
+// ---- Hit tests ----
 function hitTest(p: ActiveProjectile): boolean {
   if (p.x < -60 || p.x > W + 60 || p.y > H + 60) { p.off = true; return true; }
+  if (p.tunneling) {
+    // only collide with tanks while tunneling
+    for (const t of tanks) {
+      if (Math.hypot(t.x - p.x, (t.y - 12) - p.y) < 15) return true;
+    }
+    return false;
+  }
   if (collidesWithTerrain(p.x, p.y, terrain, W, H)) return true;
   for (const t of tanks) {
     if (Math.hypot(t.x - p.x, (t.y - 12) - p.y) < 15) return true;
@@ -259,6 +243,11 @@ function hitTest(p: ActiveProjectile): boolean {
   return false;
 }
 
+function hitTestTerrain(p: ActiveProjectile): boolean {
+  return collidesWithTerrain(p.x, p.y, terrain, W, H);
+}
+
+// ---- Impact / scoring ----
 function onImpact(x: number, y: number, p: ActiveProjectile): void {
   const foeIdx = 1 - p.owner;
   const foe = tanks[foeIdx];
@@ -267,8 +256,21 @@ function onImpact(x: number, y: number, p: ActiveProjectile): void {
   const dmg = damages[foeIdx] ?? 0;
   recordShotResult(match, dist, dmg, p.weapon, foeIdx);
   renderer.shake = Math.min(16, p.weapon.shakeAmount);
-  for (const t of tanks) {
-    t.y = terrain.surfaceY(t.x);
+  for (const t of tanks) t.y = terrain.surfaceY(t.x);
+
+  // score popup
+  const pts = match.scores[p.owner] - (p.owner === 0
+    ? (match.scores[0] - (damages[foeIdx] > 0 ? Math.round(p.weapon.damage * (1 - dist / (p.weapon.blastRadius + 6))) : 0))
+    : 0);
+  void pts; // pts tracking handled in recordShotResult; just show dmg
+  if (dmg > 0) {
+    popups.push({
+      x: foe.x + (Math.random() * 20 - 10),
+      y: foe.y - 30,
+      text: '+' + dmg,
+      life: 1,
+      color: p.owner === 0 ? CFG.P1_COLOR : CFG.P2_COLOR,
+    });
   }
   syncMatchHUD();
 }
@@ -294,73 +296,157 @@ function finishShot(p: ActiveProjectile): void {
 function afterImpact(consumedShot: boolean): void {
   match.phase = 'settle';
   syncMatchHUD();
-  setTimeout(() => {
-    endTurn(consumedShot);
-  }, 500);
+  setTimeout(() => endTurn(consumedShot), 550);
+}
+
+// ---- Physics ----
+function stepFlight(dt: number): void {
+  if (!proj) return;
+  const p = proj;
+  const h = dt / CFG.SUBSTEPS;
+  const foe = tanks[1 - p.owner];
+
+  for (let s = 0; s < CFG.SUBSTEPS; s++) {
+    p.vy += CFG.GRAV * h;
+    p.vx += match.wind * h;
+
+    // Homing nudge toward foe
+    if (p.weapon.kind === 'homing') {
+      const dx = foe.x - p.x;
+      p.vx += Math.sign(dx) * 0.00008 * h;
+    }
+
+    p.x += p.vx * h;
+    p.y += p.vy * h;
+
+    // Cluster/MIRV split at apex
+    if ((p.weapon.kind === 'cluster' || p.weapon.kind === 'mirv') && !p.childrenSpawned && p.vy > 0 && p.y < H * 0.55) {
+      p.childrenSpawned = true;
+      clusterProjs = spawnClusterChildren(p);
+      p.dead = true; break;
+    }
+
+    // Tunneler: enter ground and keep boring
+    if (p.weapon.kind === 'tunneler' && !p.tunneling && hitTestTerrain(p)) {
+      p.tunneling = true;
+      p.tunnelSteps = 55;
+      p.vy = Math.abs(p.vy) * 0.6 + 0.05; // bore downward
+      p.vx *= 0.3;
+      continue;
+    }
+    if (p.tunneling) {
+      p.tunnelSteps = (p.tunnelSteps ?? 0) - 1;
+      spawnExplosionParticles(p.x, p.y, 4, particles);
+      if (p.tunnelSteps <= 0) { p.dead = true; break; }
+      continue;
+    }
+
+    if (hitTest(p)) { p.dead = true; break; }
+  }
+
+  // Roller: on terrain hit, switch to rolling mode
+  if (!p.dead && p.weapon.kind === 'roller' && hitTestTerrain(p)) {
+    p.rolling = true;
+    p.rollDir = p.vx > 0 ? 1 : -1;
+    p.rollDist = 0;
+    p.vx = 0; p.vy = 0;
+    // snap to surface
+    p.y = terrain.surfaceY(p.x);
+  }
+
+  if (!p.dead && p.rolling) {
+    const speed = 1.2;
+    p.x += (p.rollDir ?? 1) * speed;
+    p.y = terrain.surfaceY(p.x);
+    p.rollDist = (p.rollDist ?? 0) + speed;
+    // Check if rolled into a tank
+    for (const t of tanks) {
+      if (Math.hypot(t.x - p.x, (t.y - 12) - p.y) < 18) { p.dead = true; break; }
+    }
+    if (!p.dead && ((p.rollDist ?? 0) > 130 || p.x < 10 || p.x > W - 10)) {
+      p.dead = true;
+    }
+  }
+
+  if (!p.tunneling && !p.rolling) {
+    if (p.trail.length > 26) p.trail.shift();
+    p.trail.push({ x: p.x, y: p.y });
+  }
+
+  if (p.dead) {
+    if (clusterProjs.length > 0) { proj = null; match.phase = 'flight-cluster'; }
+    else finishShot(p);
+  }
+}
+
+function stepClusters(dt: number): void {
+  const h = dt / CFG.SUBSTEPS;
+  for (const p of clusterProjs) {
+    if (p.dead) continue;
+    for (let s = 0; s < CFG.SUBSTEPS; s++) {
+      p.vy += CFG.GRAV * h; p.vx += match.wind * h;
+      p.x += p.vx * h; p.y += p.vy * h;
+      if (hitTest(p)) { p.dead = true; if (!p.off) onImpact(p.x, p.y, p); break; }
+    }
+    p.trail.push({ x: p.x, y: p.y });
+    if (p.trail.length > 16) p.trail.shift();
+  }
+  if (clusterProjs.every(p => p.dead)) {
+    clusterProjs = [];
+    afterImpact(true);
+  }
 }
 
 // ---- AI ----
 function doAITurn(): void {
   const me = tanks[match.turn];
   const foe = tanks[1 - match.turn];
-  const weaponIdx = match.selectedWeapon[match.turn];
-  const { angleDeg, power } = aiChooseShot(
-    me, foe, match.wind,
-    me.skill, weaponIdx,
-    W, H,
-    (x) => terrain.surfaceY(x)
-  );
-  setAngle(angleDeg); setPower(power);
-  syncMatchHUD();
+  // AI picks the weapon with highest damage from its hand
+  const hand = match.arsenals[match.turn];
+  const bestWepIdx = hand.reduce((bi, w, i) => w.damage > hand[bi].damage ? i : bi, 0);
+  match.selectedWeapon[match.turn] = bestWepIdx;
+  doRenderArsenal();
+
+  const { angleDeg, power } = aiChooseShot(me, foe, match.wind, me.skill, W, H, x => terrain.surfaceY(x));
+  setAngle(angleDeg); setPower(power); syncMatchHUD();
   setTimeout(() => {
+    const weapon = currentWeapon();
+    if (!weapon) return;
     const rad = angleDeg * Math.PI / 180;
-    const weapon = WEAPONS[match.selectedWeapon[match.turn]];
     proj = {
       x: me.x + Math.cos(rad) * 22,
       y: me.y - 14 - Math.sin(rad) * 22,
       vx: Math.cos(rad) * (power * CFG.POWER_SCALE * 0.06),
       vy: -Math.sin(rad) * (power * CFG.POWER_SCALE * 0.06),
-      weapon,
-      owner: match.turn,
-      trail: [],
-      dead: false,
-      off: false,
-      childrenSpawned: false,
+      weapon, owner: match.turn,
+      trail: [], dead: false, off: false, childrenSpawned: false,
     };
-    match.phase = 'flight';
-    syncMatchHUD();
+    match.phase = 'flight'; syncMatchHUD();
   }, 500);
 }
 
-// ---- HUD sync ----
+// ---- HUD ----
 function syncMatchHUD(): void {
-  if (!match) return;
+  if (!match || !tanks[0]) return;
   syncHUD({
-    p1Name: tanks[0]?.name ?? 'Player 1',
-    p2Name: tanks[1]?.name ?? 'CPU',
-    p1Score: match.scores[0],
-    p2Score: match.scores[1],
-    p1ShotsLeft: match.shotsLeft[0],
-    p2ShotsLeft: match.shotsLeft[1],
-    p1HP: match.hp[0],
-    p2HP: match.hp[1],
-    wind: match.wind,
-    turn: match.turn,
-    phase: match.phase,
-    p1AI: tanks[0]?.ai ?? false,
-    p2AI: tanks[1]?.ai ?? false,
+    p1Name: tanks[0].name, p2Name: tanks[1]?.name ?? 'CPU',
+    p1Score: match.scores[0], p2Score: match.scores[1],
+    p1ShotsLeft: match.arsenals[0].length, p2ShotsLeft: match.arsenals[1].length,
+    p1HP: match.hp[0], p2HP: match.hp[1],
+    wind: match.wind, turn: match.turn, phase: match.phase,
+    p1AI: tanks[0].ai, p2AI: tanks[1]?.ai ?? false,
     mode: match.config.mode,
     accentColor: tanks[match.turn]?.color ?? '#fff',
   });
 }
 
-// ---- Controls ----
+// ---- Buttons ----
 document.getElementById('assistBtn')!.addEventListener('click', e => {
   assist = !assist;
   (e.target as HTMLElement).classList.toggle('on', assist);
 });
 document.getElementById('menuBtn')!.addEventListener('click', () => {
-  match.phase = 'menu';
+  if (match) match.phase = 'menu';
   overlay.querySelector('.sub')!.textContent = 'Artillery Duel';
   (overlay.querySelector('h1') as HTMLElement).textContent = 'HOWITZER';
   overlay.querySelector('p')!.textContent = 'Earn points by landing shots near your opponent. Most points after 10 shots wins.';
@@ -369,30 +455,27 @@ document.getElementById('menuBtn')!.addEventListener('click', () => {
 overlay.querySelectorAll('[data-mode]').forEach(btn => {
   const b = btn as HTMLElement;
   b.addEventListener('click', () => {
-    const menuMode = b.dataset.mode as MenuMode;
-    const gameMode = (b.dataset.gamemode ?? 'score') as GameModeChoice;
-    newGame(menuMode, gameMode);
+    newGame(b.dataset.mode as MenuMode, (b.dataset.gamemode ?? 'score') as GameModeChoice);
   });
 });
 
 setupAimInput(
   cv,
-  () => (match?.phase === 'aim' && !tanks[match.turn]?.ai) ? { x: tanks[match.turn].x, y: tanks[match.turn].y } : null,
+  () => (match?.phase === 'aim' && !tanks[match.turn]?.ai)
+    ? { x: tanks[match.turn].x, y: tanks[match.turn].y } : null,
   () => match?.phase === 'aim',
   (ang, power) => { setAngle(ang); setPower(power); }
 );
 
-// ---- Main render loop ----
+// ---- Render loop ----
 let last = performance.now();
 function frame(now: number): void {
-  const dt = Math.min(CFG.MAX_DT, now - last);
-  last = now;
-
+  const dt = Math.min(CFG.MAX_DT, now - last); last = now;
   ctx.save();
   renderer.applyShake();
   renderer.drawSky();
 
-  if (match?.phase !== 'menu' && terrain) {
+  if (match?.phase !== 'menu' && match?.phase !== 'draft' && terrain) {
     terrain.render(ctx);
 
     if (assist && match.phase === 'aim' && !tanks[match.turn]?.ai) {
@@ -408,12 +491,18 @@ function frame(now: number): void {
 
     const allProjs: ActiveProjectile[] = [];
     if (proj) allProjs.push(proj);
-    clusterProjs.forEach(p => { if (!p.dead) allProjs.push(p); });
+    for (const p of clusterProjs) if (!p.dead) allProjs.push(p);
     renderer.drawProjectiles(allProjs);
     renderer.updateParticles(particles, dt);
+    renderer.drawScorePopups(popups, dt);
 
-    if (tracerMarker) {
-      renderer.drawTracerMarker(tracerMarker.x, tracerMarker.y);
+    if (tracerMarker) renderer.drawTracerMarker(tracerMarker.x, tracerMarker.y);
+
+    // Turn transition banner
+    if (turnBanner.alpha > 0) {
+      turnBanner.timer -= dt;
+      if (turnBanner.timer < 300) turnBanner.alpha = Math.max(0, turnBanner.timer / 300);
+      renderer.drawTurnBanner(turnBanner.text, turnBanner.alpha);
     }
   }
 
@@ -421,6 +510,5 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 
-// ---- Boot ----
 resize();
 requestAnimationFrame(frame);

@@ -1,24 +1,8 @@
 import { CFG } from '../config';
 
-export interface Vec2 { x: number; y: number; }
-export interface Vel2 { vx: number; vy: number; }
+export interface Vec2 { vx: number; vy: number; }
 
-export function stepProjectile(
-  pos: Vec2,
-  vel: Vel2,
-  wind: number,
-  dt: number
-): void {
-  const h = dt / CFG.SUBSTEPS;
-  for (let s = 0; s < CFG.SUBSTEPS; s++) {
-    vel.vy += CFG.GRAV * h;
-    vel.vx += wind * h;
-    pos.x += vel.vx * h;
-    pos.y += vel.vy * h;
-  }
-}
-
-export function launchVelocity(angleDeg: number, power: number): Vel2 {
+export function launchVelocity(angleDeg: number, power: number): Vec2 {
   const rad = angleDeg * Math.PI / 180;
   const v = power * CFG.POWER_SCALE * 0.06;
   return { vx: Math.cos(rad) * v, vy: -Math.sin(rad) * v };
@@ -27,7 +11,7 @@ export function launchVelocity(angleDeg: number, power: number): Vel2 {
 export function simulateLanding(
   startX: number,
   startY: number,
-  vel: Vel2,
+  vel: Vec2,
   wind: number,
   W: number,
   H: number,

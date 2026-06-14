@@ -1,3 +1,4 @@
+import { CFG } from '../config';
 import { simulateLanding, launchVelocity } from '../engine/physics';
 
 export interface TankLike { x: number; y: number; }
@@ -7,7 +8,6 @@ export function aiChooseShot(
   foe: TankLike,
   wind: number,
   skill: number,
-  _weaponIndex: number,
   W: number,
   H: number,
   surfaceY: (x: number) => number
@@ -33,3 +33,6 @@ export function aiChooseShot(
   const pw = Math.max(10, Math.min(100, (best?.pw ?? 55) + (Math.random() * 2 - 1) * 22 * scatter));
   return { angleDeg: ang, power: pw };
 }
+
+// suppress unused import warning
+void CFG;
