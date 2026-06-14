@@ -306,9 +306,31 @@ function onImpact(x: number, y: number, p: ActiveProjectile): void {
 }
 
 function finishShot(p: ActiveProjectile): void {
-  if (!p.off) onImpact(p.x, p.y, p);
+  if (!p.off) {
+    if (p.weapon.kind === 'tunneler') spawnTunnelEruption(p.x, p.y);
+    onImpact(p.x, p.y, p);
+  }
   proj = null;
   afterImpact(p.weapon.consumesShot);
+}
+
+function spawnTunnelEruption(x: number, y: number): void {
+  // Upward debris burst — heavy rocks + dirt
+  for (let i = 0; i < 32; i++) {
+    const a = -Math.PI * 0.5 + (Math.random() - 0.5) * Math.PI * 0.85;
+    const s = Math.random() * 0.38 + 0.1;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life: 1.2 + Math.random() * 0.5, r: Math.random() * 5 + 2,
+      hue: Math.random() < 0.5 ? '#b9853f' : '#ffce6b' });
+  }
+  // Dirt clods
+  for (let i = 0; i < 14; i++) {
+    const a = -Math.PI * 0.5 + (Math.random() - 0.5) * Math.PI;
+    const s = Math.random() * 0.55 + 0.2;
+    particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+      life: 1.5 + Math.random() * 0.4, r: Math.random() * 8 + 4,
+      hue: '#8B5E3C' });
+  }
 }
 
 function stepTracers(dt: number): void {
@@ -359,7 +381,11 @@ function stepFlight(dt: number): void {
 
     if (p.weapon.kind === 'homing') {
       const dx = foe.x - p.x;
-      p.vx += Math.sign(dx) * 0.00008 * h;
+      const dy = (foe.y - 12) - p.y;
+      const dist = Math.hypot(dx, dy) + 1;
+      const str = 0.0018 * h;
+      p.vx += (dx / dist) * str;
+      p.vy += (dy / dist) * str;
     }
 
     p.x += p.vx * h;
@@ -373,14 +399,15 @@ function stepFlight(dt: number): void {
 
     if (p.weapon.kind === 'tunneler' && !p.tunneling && hitTestTerrain(p)) {
       p.tunneling = true;
-      p.tunnelSteps = 55;
-      p.vy = Math.abs(p.vy) * 0.6 + 0.05;
-      p.vx *= 0.3;
+      p.tunnelSteps = 70;
+      p.tunnelEntryX = p.x;
+      p.tunnelEntryY = terrain.surfaceY(p.x);
+      p.vy = Math.abs(p.vy) * 0.5 + 0.04;
+      p.vx *= 0.2;
       continue;
     }
     if (p.tunneling) {
       p.tunnelSteps = (p.tunnelSteps ?? 0) - 1;
-      spawnExplosionParticles(p.x, p.y, 4, particles);
       if (p.tunnelSteps <= 0) { p.dead = true; break; }
       continue;
     }

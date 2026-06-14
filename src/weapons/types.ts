@@ -51,5 +51,7 @@ export interface ActiveProjectile {
   rollDist?: number;
   tunneling?: boolean;
   tunnelSteps?: number;
-  tracerOffset?: number;  // angle offset in degrees for tracer spread bullets
+  tunnelEntryX?: number;
+  tunnelEntryY?: number;
+  tracerOffset?: number;
 }

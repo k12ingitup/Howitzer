@@ -85,7 +85,11 @@ export function applyExplosion(
       damages.push(0);
     }
   }
-  spawnExplosionParticles(x, y, weapon.blastRadius, particles);
+  if (weapon.kind === 'homing') {
+    spawnEnergyParticles(x, y, weapon.blastRadius, particles);
+  } else {
+    spawnExplosionParticles(x, y, weapon.blastRadius, particles);
+  }
   return damages;
 }
 
@@ -143,6 +147,23 @@ export function spawnSmokePuff(
       life: 1,
       r: Math.random() * 5 + 2,
       hue: 'rgba(180,160,130,0.6)',
+    });
+  }
+}
+
+export function spawnEnergyParticles(
+  x: number, y: number, radius: number, particles: Particle[]
+): void {
+  const cols = ['#f0abfc', '#c084fc', '#e879f9', '#fff', '#a855f7'];
+  for (let i = 0; i < 28 + Math.floor(radius); i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = Math.random() * 0.32 + 0.06;
+    particles.push({
+      x, y,
+      vx: Math.cos(a) * s, vy: Math.sin(a) * s - 0.04,
+      life: 0.8 + Math.random() * 0.5,
+      r: Math.random() * 4 + 1,
+      hue: cols[Math.floor(Math.random() * cols.length)],
     });
   }
 }

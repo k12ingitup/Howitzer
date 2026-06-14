@@ -123,52 +123,131 @@ export class Renderer {
   }
 
   drawProjectiles(projectiles: ActiveProjectile[]): void {
+    const ctx = this.ctx;
     for (const p of projectiles) {
       if (p.dead) continue;
       const col = p.weapon.color;
+      const kind = p.weapon.kind;
 
+      // Roller — spinning ball on surface
       if (p.rolling) {
-        this.ctx.beginPath();
-        this.ctx.arc(p.x, p.y - 5, 6, 0, Math.PI * 2);
-        this.ctx.fillStyle = col;
-        this.ctx.fill();
-        this.ctx.beginPath();
-        this.ctx.arc(p.x, p.y - 5, 3, 0, Math.PI * 2);
-        this.ctx.fillStyle = '#fff';
-        this.ctx.fill();
-        continue;
-      }
-      if (p.tunneling) {
-        this.ctx.beginPath();
-        this.ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
-        this.ctx.fillStyle = col;
-        this.ctx.globalAlpha = 0.6;
-        this.ctx.fill();
-        this.ctx.globalAlpha = 1;
+        ctx.beginPath(); ctx.arc(p.x, p.y - 5, 7, 0, Math.PI * 2);
+        ctx.fillStyle = col; ctx.fill();
+        ctx.beginPath(); ctx.arc(p.x, p.y - 5, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#fff'; ctx.fill();
         continue;
       }
 
-      // Trail
-      if (p.trail.length > 1) {
-        this.ctx.beginPath();
-        for (let i = 0; i < p.trail.length; i++) {
-          const pt = p.trail[i];
-          if (i === 0) this.ctx.moveTo(pt.x, pt.y);
-          else this.ctx.lineTo(pt.x, pt.y);
+      // Tunneler underground — surface ripple rings at entry point
+      if (p.tunneling) {
+        const ex = p.tunnelEntryX ?? p.x;
+        const ey = p.tunnelEntryY ?? p.y;
+        const progress = 1 - (p.tunnelSteps ?? 0) / 70;
+        ctx.save();
+        for (let ring = 0; ring < 3; ring++) {
+          const rp = (progress + ring * 0.28) % 1;
+          ctx.globalAlpha = (1 - rp) * 0.55;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(ex, ey, rp * 28, rp * 8, 0, 0, Math.PI * 2);
+          ctx.stroke();
         }
-        this.ctx.strokeStyle = col + '55';
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.restore();
+        continue;
       }
-      // Projectile dot — colored by weapon
-      this.ctx.beginPath();
-      this.ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-      this.ctx.fillStyle = col;
-      this.ctx.fill();
-      this.ctx.beginPath();
-      this.ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2);
-      this.ctx.fillStyle = '#fff';
-      this.ctx.fill();
+
+      // Tracer — bright green dart
+      if (kind === 'tracer') {
+        if (p.trail.length > 1) {
+          ctx.save();
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 2;
+          ctx.shadowColor = col;
+          ctx.shadowBlur = 6;
+          ctx.beginPath();
+          for (let i = 0; i < p.trail.length; i++) {
+            const pt = p.trail[i];
+            i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+          }
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.save();
+        ctx.shadowColor = col; ctx.shadowBlur = 10;
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        continue;
+      }
+
+      // Homing — glowing purple orb with dashed trail
+      if (kind === 'homing') {
+        if (p.trail.length > 1) {
+          ctx.save();
+          ctx.setLineDash([4, 5]);
+          ctx.strokeStyle = col + '88';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          for (let i = 0; i < p.trail.length; i++) {
+            const pt = p.trail[i];
+            i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+          }
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.restore();
+        }
+        ctx.save();
+        // outer glow
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, 14);
+        g.addColorStop(0, col + 'cc');
+        g.addColorStop(0.5, col + '55');
+        g.addColorStop(1, col + '00');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI * 2); ctx.fill();
+        // core orb
+        ctx.shadowColor = col; ctx.shadowBlur = 12;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = col;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        continue;
+      }
+
+      // Shell / Heavy / Baby / Sniper / etc — elongated capsule in velocity direction
+      const speed = Math.hypot(p.vx, p.vy) + 0.001;
+      const nx = p.vx / speed, ny = p.vy / speed;
+      const len = kind === 'single' ? 10 : 8;
+
+      // Smoke trail
+      if (p.trail.length > 1) {
+        ctx.beginPath();
+        for (let i = 0; i < p.trail.length; i++) {
+          const pt = p.trail[i]; const a = i / p.trail.length;
+          i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+          void a;
+        }
+        ctx.strokeStyle = 'rgba(200,180,150,0.25)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+
+      // Capsule body
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(Math.atan2(ny, nx));
+      ctx.fillStyle = col;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, len, 4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // nose highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.beginPath();
+      ctx.ellipse(len * 0.3, -1, len * 0.3, 1.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
   }
 
