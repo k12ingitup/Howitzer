@@ -35,10 +35,10 @@
   .shots-label{font-size:9px;opacity:.5;margin-top:3px;font-family:monospace;letter-spacing:.05em}
   #wind{flex:0 0 auto;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
     background:rgba(12,10,20,.55);border:1px solid var(--line);border-radius:10px;
-    padding:7px 11px;min-width:96px}
+    padding:6px 11px;min-width:90px}
   #wind .lab{font-size:10px;letter-spacing:.18em;opacity:.65;text-transform:uppercase}
-  #wind .val{font-size:15px;font-weight:700;color:var(--readout);margin-top:2px}
-  #wind .sub{font-size:9px;opacity:.5;letter-spacing:.08em;margin-top:1px}
+  #wind .val{font-size:15px;font-weight:700;color:var(--readout);margin-top:1px}
+  #wind .sub{font-size:9px;opacity:.45;letter-spacing:.06em;margin-top:1px}
   #turnTag{position:absolute;top:70px;left:50%;transform:translateX(-50%);
     font-size:11px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;
     background:rgba(12,10,20,.5);padding:4px 12px;border-radius:99px;border:1px solid var(--line);
@@ -46,9 +46,43 @@
 
   /* Deck */
   #deck{flex:0 0 auto;background:linear-gradient(180deg,rgba(12,10,20,.4),var(--hud) 38%);
-    border-top:1px solid var(--line);padding:11px 12px calc(11px + env(safe-area-inset-bottom));
-    display:grid;grid-template-columns:1fr auto;gap:11px;align-items:center}
-  .dials{display:flex;flex-direction:column;gap:9px;min-width:0}
+    border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
+  .dials{display:flex;flex-direction:column;gap:8px;min-width:0}
+
+  /* Weapon cards */
+  .weps{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .weps::-webkit-scrollbar{display:none}
+  .wep{
+    flex:0 0 62px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:2px;padding:6px 4px 5px;
+    border-radius:10px;
+    border:2px solid var(--wep-color, rgba(200,190,180,0.35));
+    background:rgba(255,255,255,.04);
+    cursor:pointer;transition:border-color .15s,background .15s,transform .08s;
+    position:relative;
+  }
+  .wep:active{transform:scale(.93)}
+  .wep.on{
+    background:rgba(255,255,255,.10);
+    border-color:var(--wep-accent,#fff);
+    box-shadow:0 0 10px var(--wep-accent,#fff33);
+  }
+  .wep[data-rarity=rare]{border-color:var(--wep-color,#3ad9c4)}
+  .wep[data-rarity=legendary]{border-color:var(--wep-color,#ffd060)}
+  .wep[data-rarity=legendary]::after{
+    content:'★';position:absolute;top:2px;right:4px;
+    font-size:8px;color:#ffd060;opacity:.8;
+  }
+  .wep-icon{font-size:20px;line-height:1;display:block}
+  .wep-name{font-size:9px;font-weight:800;letter-spacing:.04em;text-align:center;
+    color:var(--ink);line-height:1.1;display:block}
+  .wep-sub{font-size:8px;opacity:.45;text-align:center;display:block;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+  .wep.on .wep-name{color:var(--wep-accent,#fff)}
+
+  /* Sliders */
   .row{display:flex;align-items:center;gap:10px}
   .row label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;width:48px;
     opacity:.7;font-weight:700;flex:0 0 auto}
@@ -62,13 +96,13 @@
     background:var(--ink);border:3px solid var(--accent,#fff)}
   .read{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;font-weight:700;
     color:var(--readout);width:54px;text-align:right;flex:0 0 auto}
-  .weps{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
-  .weps::-webkit-scrollbar{display:none}
-  .wep{flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:.04em;padding:7px 8px;
-    border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.05);
-    color:var(--ink);cursor:pointer;text-align:center;line-height:1.15}
-  .wep small{display:block;font-size:9px;opacity:.55;font-weight:600;letter-spacing:0}
-  .wep.on{background:rgba(154,247,201,.16);border-color:var(--readout);color:#eafff4}
+  .toggles{display:flex;gap:8px;align-items:center;margin-top:0}
+  .chip{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+    padding:5px 9px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.04);
+    color:var(--ink);cursor:pointer;opacity:.7}
+  .chip.on{opacity:1;border-color:var(--readout);color:var(--readout)}
+
+  /* Fire button */
   #fire{grid-row:1;width:104px;height:104px;border-radius:50%;border:none;cursor:pointer;
     align-self:stretch;color:#1a0d06;font-weight:800;letter-spacing:.06em;font-size:17px;
     background:radial-gradient(circle at 38% 32%,#ffd08a,var(--p1) 64%,#c44415);
@@ -76,21 +110,16 @@
     transition:transform .07s ease,filter .2s ease;text-transform:uppercase}
   #fire:active{transform:scale(.93)}
   #fire:disabled{filter:grayscale(.7) brightness(.6);cursor:default}
-  .toggles{display:flex;gap:8px;align-items:center;margin-top:1px}
-  .chip{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
-    padding:5px 9px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.04);
-    color:var(--ink);cursor:pointer;opacity:.7}
-  .chip.on{opacity:1;border-color:var(--readout);color:var(--readout)}
 
-  /* Overlays */
-  #overlay,#draft{position:absolute;inset:0;background:rgba(8,6,14,.88);backdrop-filter:blur(8px);
+  /* Overlays shared */
+  .screen{position:absolute;inset:0;background:rgba(8,6,14,.88);backdrop-filter:blur(8px);
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
     text-align:center;padding:24px;z-index:20}
-  #overlay h1,#draft h1{margin:0;font-size:clamp(28px,8vw,50px);font-weight:800;letter-spacing:.02em;
+  .screen h1{margin:0;font-size:clamp(28px,8vw,50px);font-weight:800;letter-spacing:.02em;
     background:linear-gradient(90deg,var(--p1),var(--p2));-webkit-background-clip:text;
     background-clip:text;color:transparent}
-  #overlay p{margin:0;opacity:.7;max-width:340px;line-height:1.5;font-size:14px}
-  #overlay .grp,#draft .grp{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .screen p{margin:0;opacity:.7;max-width:340px;line-height:1.5;font-size:14px}
+  .grp{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
   .big{font-size:15px;font-weight:700;padding:13px 22px;border-radius:12px;border:1px solid var(--line);
     background:rgba(255,255,255,.06);color:var(--ink);cursor:pointer}
   .big.go{background:linear-gradient(90deg,var(--p1),#ff9d63);border:none;color:#190b04}
@@ -98,17 +127,21 @@
   .hidden{display:none!important}
 
   /* Draft screen */
-  #draft h2{margin:0;font-size:16px;letter-spacing:.1em;text-transform:uppercase;opacity:.7;font-weight:700}
-  .draft-cols{display:flex;gap:20px;width:100%;max-width:500px}
-  .draft-col{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:12px}
-  .draft-col-name{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+  .draft-cols{display:flex;gap:12px;width:100%;max-width:480px}
+  .draft-col{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:10px}
+  .draft-col-name{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
     margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
-  .draft-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;
-    max-height:220px;overflow-y:auto;scrollbar-width:none}
+  .draft-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:3px;
+    max-height:200px;overflow-y:auto;scrollbar-width:none}
   .draft-col ul::-webkit-scrollbar{display:none}
-  .draft-col li{font-size:12px;font-weight:700;padding:4px 6px;border-radius:6px;
-    background:rgba(255,255,255,.04);display:flex;justify-content:space-between;align-items:center}
-  .draft-col li span{font-size:10px;opacity:.5;font-weight:500}
+  .draft-col li{font-size:11px;font-weight:700;padding:4px 6px;border-radius:6px;
+    background:rgba(255,255,255,.04);display:grid;grid-template-columns:20px 1fr auto;
+    align-items:center;gap:4px}
+  .draft-col li[data-rarity=rare]{border-left:2px solid #3ad9c4;padding-left:4px}
+  .draft-col li[data-rarity=legendary]{border-left:2px solid #ffd060;padding-left:4px}
+  .draft-col li .di{font-size:14px;text-align:center}
+  .draft-col li .dn{font-size:11px;font-weight:700}
+  .draft-col li .ds{font-size:9px;opacity:.45}
 </style>
 </head>
 <body>
@@ -138,13 +171,14 @@
     <div class="dials">
       <div class="weps" id="weps"></div>
       <div class="row"><label>Angle</label>
-        <input id="angle" type="range" min="0" max="180" value="45" step="1">
-        <span class="read" id="angleR">45°</span></div>
+        <input id="angle" type="range" min="0" max="180" value="50" step="1">
+        <span class="read" id="angleR">50°</span></div>
       <div class="row"><label>Power</label>
         <input id="power" type="range" min="5" max="100" value="55" step="1">
         <span class="read" id="powerR">55</span></div>
       <div class="toggles">
-        <span class="chip on" id="assistBtn">Aim assist</span>
+        <!-- aim arc OFF by default — tracer is the scout tool -->
+        <span class="chip" id="assistBtn">Aim assist</span>
         <span class="chip" id="menuBtn">Menu</span>
       </div>
     </div>
@@ -152,10 +186,10 @@
   </div>
 
   <!-- Main menu -->
-  <div id="overlay">
+  <div id="overlay" class="screen">
     <div class="sub">Artillery Duel</div>
     <h1>HOWITZER</h1>
-    <p>Earn points by landing shots near your opponent. Most points after 10 shots wins. Each player gets a random weapon deal — pick wisely.</p>
+    <p>Earn points by landing shots near your opponent. 10 weapons each — highest score wins. Use a Tracer to scout for free.</p>
     <div class="grp">
       <button class="big go" data-mode="cpu-easy" data-gamemode="score">vs CPU · Cadet</button>
       <button class="big go" data-mode="cpu-hard" data-gamemode="score">vs CPU · Veteran</button>
@@ -167,7 +201,7 @@
   </div>
 
   <!-- Draft screen -->
-  <div id="draft" class="hidden">
+  <div id="draft" class="screen hidden">
     <div class="sub">Weapons Dealt</div>
     <h1>YOUR ARSENAL</h1>
     <div class="draft-cols">

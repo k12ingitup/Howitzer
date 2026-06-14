@@ -11,10 +11,15 @@ export type WeaponKind =
   | 'napalm'
   | 'earthquake';
 
+export type WeaponRarity = 'common' | 'rare' | 'legendary';
+
 export interface Weapon {
   id: string;
   name: string;
   sub: string;
+  icon: string;           // emoji icon
+  color: string;          // weapon accent color
+  rarity: WeaponRarity;
   kind: WeaponKind;
   blastRadius: number;
   damage: number;
@@ -23,7 +28,6 @@ export interface Weapon {
   dirtRadius?: number;
   consumesShot: boolean;
   shakeAmount: number;
-  // earthquake: number of craters
   quakeCount?: number;
   quakeSpread?: number;
 }
@@ -39,11 +43,9 @@ export interface ActiveProjectile {
   dead: boolean;
   off: boolean;
   childrenSpawned?: boolean;
-  // roller
   rolling?: boolean;
   rollDir?: number;
   rollDist?: number;
-  // tunneler
   tunneling?: boolean;
   tunnelSteps?: number;
 }

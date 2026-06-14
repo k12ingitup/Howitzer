@@ -2,17 +2,13 @@ import { MatchState, MatchConfig } from './state';
 import { shotScore } from './scoring';
 import { Weapon } from '../weapons/types';
 import { WEAPONS } from '../weapons/registry';
-import { CFG } from '../config';
 
 function dealArsenal(size: number): Weapon[] {
-  // Shuffle all weapons and pick `size`, wrapping if pool is small
-  const pool = [...WEAPONS].filter(w => w.id !== 'tracer'); // tracer always available separately
-  const hand: Weapon[] = [];
+  const pool = [...WEAPONS].filter(w => w.id !== 'tracer');
   const shuffled = pool.sort(() => Math.random() - 0.5);
-  for (let i = 0; i < size; i++) {
-    hand.push(shuffled[i % shuffled.length]);
-  }
-  // always add one tracer
+  const hand: Weapon[] = [];
+  for (let i = 0; i < size; i++) hand.push(shuffled[i % shuffled.length]);
+  // always include one tracer
   hand.splice(Math.floor(Math.random() * (size + 1)), 0,
     WEAPONS.find(w => w.id === 'tracer')!);
   return hand;
@@ -24,7 +20,7 @@ export function createMatch(config: MatchConfig): MatchState {
     config,
     phase: 'draft',
     turn: 0,
-    shotsLeft: [size + 1, size + 1], // +1 for the tracer
+    shotsLeft: [size + 1, size + 1],
     scores: [0, 0],
     hp: [100, 100],
     wind: rollWind(),
@@ -37,13 +33,20 @@ export function rollWind(): number {
   return +((Math.random() * 2 - 1) * 0.0009).toFixed(5);
 }
 
+// Wind drifts gradually each turn instead of snapping to a new random value
+export function driftWind(current: number): number {
+  const delta = (Math.random() * 2 - 1) * 0.00018;
+  const next = Math.max(-0.00088, Math.min(0.00088, current + delta));
+  return parseFloat(next.toFixed(5));
+}
+
 export function recordShotResult(
   state: MatchState,
   distanceToFoe: number,
   damageDealt: number,
   weapon: Weapon,
   foeIndex: number
-): void {
+): number {
   const pts = shotScore(distanceToFoe, weapon);
   state.scores[state.turn] += pts;
   if (state.config.mode === 'annihilation') {
@@ -51,6 +54,7 @@ export function recordShotResult(
   } else {
     state.hp[foeIndex] = Math.max(1, state.hp[foeIndex] - Math.floor(damageDealt * 0.4));
   }
+  return pts;
 }
 
 export function consumeWeapon(state: MatchState): void {
@@ -61,7 +65,7 @@ export function consumeWeapon(state: MatchState): void {
 }
 
 export function advanceTurn(state: MatchState): void {
-  state.wind = rollWind();
+  state.wind = driftWind(state.wind);
   state.turn = 1 - state.turn;
   state.selectedWeapon[state.turn] = 0;
 }
@@ -81,6 +85,3 @@ export function winner(state: MatchState): number {
   if (state.scores[0] === state.scores[1]) return -1;
   return state.scores[0] > state.scores[1] ? 0 : 1;
 }
-
-// suppress unused import warning
-void CFG;
