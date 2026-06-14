@@ -48,8 +48,8 @@
   #deck{flex:0 0 auto;background:linear-gradient(180deg,rgba(12,10,20,.4),var(--hud) 38%);
     border-top:1px solid var(--line);
     padding:8px 12px calc(8px + env(safe-area-inset-bottom));
-    display:flex;flex-direction:row;gap:10px;align-items:stretch}
-  .dials{display:flex;flex-direction:column;gap:7px;flex:1 1 0;min-width:0}
+    display:grid;grid-template-columns:1fr 96px;gap:10px;align-items:center}
+  .dials{display:flex;flex-direction:column;gap:7px;min-width:0;overflow:hidden}
 
   /* Weapon cards */
   .weps{display:flex;gap:5px;overflow-x:auto;padding-bottom:1px;scrollbar-width:none}
@@ -103,7 +103,7 @@
   .chip.on{opacity:1;border-color:var(--readout);color:var(--readout)}
 
   /* Fire button */
-  #fire{flex:0 0 88px;width:88px;height:88px;align-self:center;
+  #fire{width:88px;height:88px;justify-self:center;
     border-radius:50%;border:none;cursor:pointer;
     color:#1a0d06;font-weight:800;letter-spacing:.06em;font-size:15px;
     background:radial-gradient(circle at 38% 32%,#ffd08a,var(--p1) 64%,#c44415);
