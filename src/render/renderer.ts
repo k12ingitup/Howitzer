@@ -9,6 +9,7 @@ export interface ScorePopup {
   text: string;
   life: number;
   color: string;
+  small?: boolean;
 }
 
 export class Renderer {
@@ -299,7 +300,7 @@ export class Renderer {
       const alpha = Math.min(1, p.life * 2.5);
       ctx.save();
       ctx.globalAlpha = alpha;
-      ctx.font = 'bold 28px ui-monospace,monospace';
+      ctx.font = p.small ? 'bold 13px ui-monospace,monospace' : 'bold 28px ui-monospace,monospace';
       ctx.textAlign = 'center';
       ctx.shadowColor = 'rgba(0,0,0,.8)';
       ctx.shadowBlur = 8;

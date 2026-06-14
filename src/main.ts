@@ -213,7 +213,7 @@ function currentWeapon() {
   return match.arsenals[match.turn][match.selectedWeapon[match.turn]];
 }
 
-const TRACER_OFFSETS = [-8, -4, 0, +4, +8];
+const TRACER_OFFSETS = [-16, -8, 0, +8, +16];
 
 function makeProjectile(t: Tank, weapon: import('./weapons/types').Weapon, angleDeg: number, power: number, offsetDeg = 0): ActiveProjectile {
   const a = angleDeg + offsetDeg;
@@ -285,22 +285,17 @@ function onImpact(x: number, y: number, p: ActiveProjectile): void {
   for (const t of tanks) t.y = terrain.surfaceY(t.x);
 
   // Score popup
+  const popX = x + (Math.random() * 16 - 8);
   if (pts > 0) {
-    popups.push({
-      x: foe.x + (Math.random() * 16 - 8),
-      y: foe.y - 40,
-      text: '+' + pts,
-      life: 1,
-      color: p.owner === 0 ? CFG.P1_COLOR : CFG.P2_COLOR,
-    });
-  } else if (dmg > 0 && match.config.mode === 'annihilation') {
-    popups.push({
-      x: foe.x,
-      y: foe.y - 40,
-      text: '-' + dmg,
-      life: 1,
-      color: '#ff5d5d',
-    });
+    popups.push({ x: popX, y: y - 50, text: '+' + pts + ' pts', life: 1,
+      color: p.owner === 0 ? CFG.P1_COLOR : CFG.P2_COLOR });
+  }
+  // Hit data popup (always show in dev mode, or when scoring)
+  if (devMode || pts > 0 || dmg > 0) {
+    const distLabel = Math.round(dist) + 'px away';
+    const dmgLabel = dmg > 0 ? ' · -' + dmg + 'hp' : '';
+    popups.push({ x: popX, y: y - 24, text: distLabel + dmgLabel, life: 0.85,
+      color: 'rgba(244,236,223,0.7)', small: true });
   }
   syncMatchHUD();
 }
