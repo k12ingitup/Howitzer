@@ -1,6 +1,6 @@
 export const CFG = {
-  GRAV: 0.0011,
-  POWER_SCALE: 0.62,
+  GRAV: 0.00026,
+  POWER_SCALE: 0.15,
   SUBSTEPS: 4,
   SHOTS_PER_PLAYER: 10,
   MAX_DT: 48,

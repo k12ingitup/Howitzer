@@ -36,6 +36,7 @@ let proj: ActiveProjectile | null = null;
 let clusterProjs: ActiveProjectile[] = [];
 // Aim arc OFF by default — use tracer to scout
 let assist = true;
+let devMode = false;
 let tracerMarker: { x: number; y: number } | null = null;
 let tracerTimeout: ReturnType<typeof setTimeout> | null = null;
 let popups: ScorePopup[] = [];
@@ -173,7 +174,7 @@ function showTurnTransition(nextName: string, cb: () => void): void {
 }
 
 function endTurn(consumedShot: boolean): void {
-  if (consumedShot) consumeWeapon(match);
+  if (consumedShot && !devMode) consumeWeapon(match);
   if (isMatchOver(match)) return doGameOver();
   advanceTurn(match);
   if (isMatchOver(match)) return doGameOver();
@@ -444,6 +445,10 @@ assistBtn.classList.add('on');
 assistBtn.addEventListener('click', e => {
   assist = !assist;
   (e.target as HTMLElement).classList.toggle('on', assist);
+});
+document.getElementById('devBtn')!.addEventListener('click', e => {
+  devMode = !devMode;
+  (e.target as HTMLElement).classList.toggle('on', devMode);
 });
 document.getElementById('menuBtn')!.addEventListener('click', () => {
   if (match) match.phase = 'menu';

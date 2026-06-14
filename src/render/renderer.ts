@@ -1,3 +1,4 @@
+import { CFG } from '../config';
 import { Terrain } from '../engine/terrain';
 import { ActiveProjectile } from '../weapons/types';
 import { Particle, updateAndDrawParticles } from './particles';
@@ -98,9 +99,8 @@ export class Renderer {
   }
 
   drawAimArc(tank: Tank, angleDeg: number, power: number, wind: number, terrain: Terrain): void {
-    const GRAV = 0.0011;
     const rad = angleDeg * Math.PI / 180;
-    const v = power * 0.62 * 0.06;
+    const v = power * CFG.POWER_SCALE * 0.06;
     let x = tank.x + Math.cos(rad) * 22;
     let y = tank.y - 14 - Math.sin(rad) * 22;
     let vx = Math.cos(rad) * v;
@@ -108,9 +108,9 @@ export class Renderer {
     const W = this.getW(), H = this.getH();
     this.ctx.save();
     this.ctx.fillStyle = 'rgba(244,236,223,.5)';
-    for (let i = 0; i < 70; i++) {
-      for (let s = 0; s < 6; s++) {
-        vy += GRAV * 4; vx += wind * 4; x += vx * 4; y += vy * 4;
+    for (let i = 0; i < 120; i++) {
+      for (let s = 0; s < CFG.SUBSTEPS; s++) {
+        vy += CFG.GRAV * 4; vx += wind * 4; x += vx * 4; y += vy * 4;
       }
       if (x < 0 || x > W || y > H || terrain.collisionAt(x, y)) break;
       if (i % 2 === 0) {
