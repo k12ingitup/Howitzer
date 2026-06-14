@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>Howitzer — Artillery Duel</title>
+<style>
+  :root{
+    --sky-top:#1b1430;
+    --sky-mid:#5a3b6e;
+    --sky-low:#c9683f;
+    --sand:#e8b96b;
+    --sand-dark:#b9853f;
+    --hud:#0c0a14;
+    --ink:#f4ecdf;
+    --p1:#ff7a3c;   /* warm orange */
+    --p2:#3ad9c4;   /* cool teal   */
+    --line:rgba(244,236,223,.16);
+    --readout:#9af7c9;
+    --warn:#ff5d5d;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--ink);
+    font-family:ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;}
+  #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
+  canvas{display:block;width:100%;flex:1 1 auto;touch-action:none}
+
+  /* ---- Top HUD ---- */
+  #hud{position:absolute;top:0;left:0;right:0;padding:10px 12px;
+    display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+    pointer-events:none;}
+  .bar{flex:1 1 0;max-width:280px;background:rgba(12,10,20,.55);border:1px solid var(--line);
+    border-radius:10px;padding:7px 9px;backdrop-filter:blur(6px)}
+  .bar .name{font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:.8;
+    display:flex;justify-content:space-between;font-weight:700}
+  .hp{height:9px;border-radius:5px;background:rgba(255,255,255,.12);margin-top:5px;overflow:hidden}
+  .hp > i{display:block;height:100%;border-radius:5px;transition:width .35s ease}
+  #c1 i{background:var(--p1)} #c2 i{background:var(--p2)}
+  #c2{text-align:right}
+  #wind{flex:0 0 auto;text-align:center;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    background:rgba(12,10,20,.55);border:1px solid var(--line);border-radius:10px;
+    padding:7px 11px;min-width:96px}
+  #wind .lab{font-size:10px;letter-spacing:.18em;opacity:.65;text-transform:uppercase}
+  #wind .val{font-size:15px;font-weight:700;color:var(--readout);margin-top:2px}
+  #turnTag{position:absolute;top:64px;left:50%;transform:translateX(-50%);
+    font-size:11px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;
+    background:rgba(12,10,20,.5);padding:4px 12px;border-radius:99px;border:1px solid var(--line);
+    pointer-events:none}
+
+  /* ---- Bottom control deck ---- */
+  #deck{flex:0 0 auto;background:linear-gradient(180deg,rgba(12,10,20,.4),var(--hud) 38%);
+    border-top:1px solid var(--line);padding:11px 12px calc(11px + env(safe-area-inset-bottom));
+    display:grid;grid-template-columns:1fr auto;gap:11px;align-items:center}
+  .dials{display:flex;flex-direction:column;gap:9px;min-width:0}
+  .row{display:flex;align-items:center;gap:10px}
+  .row label{font-size:10px;letter-spacing:.16em;text-transform:uppercase;width:48px;
+    opacity:.7;font-weight:700;flex:0 0 auto}
+  .row input[type=range]{flex:1 1 auto;-webkit-appearance:none;appearance:none;height:26px;background:transparent}
+  .row input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;
+    background:rgba(255,255,255,.14)}
+  .row input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:rgba(255,255,255,.14)}
+  .row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;
+    margin-top:-9px;border-radius:50%;background:var(--ink);border:3px solid var(--accent,#fff);
+    box-shadow:0 2px 6px rgba(0,0,0,.5)}
+  .row input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;
+    background:var(--ink);border:3px solid var(--accent,#fff)}
+  .read{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;font-weight:700;
+    color:var(--readout);width:54px;text-align:right;flex:0 0 auto}
+  .weps{display:flex;gap:6px}
+  .wep{flex:1 1 0;font-size:11px;font-weight:700;letter-spacing:.04em;padding:7px 4px;
+    border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.05);
+    color:var(--ink);cursor:pointer;text-align:center;line-height:1.15}
+  .wep small{display:block;font-size:9px;opacity:.55;font-weight:600;letter-spacing:0}
+  .wep.on{background:rgba(154,247,201,.16);border-color:var(--readout);color:#eafff4}
+  #fire{grid-row:1;width:104px;height:104px;border-radius:50%;border:none;cursor:pointer;
+    align-self:stretch;color:#1a0d06;font-weight:800;letter-spacing:.06em;font-size:17px;
+    background:radial-gradient(circle at 38% 32%,#ffd08a,var(--p1) 64%,#c44415);
+    box-shadow:0 6px 18px rgba(255,122,60,.4),inset 0 -4px 10px rgba(0,0,0,.3);
+    transition:transform .07s ease,filter .2s ease;text-transform:uppercase}
+  #fire:active{transform:scale(.93)}
+  #fire:disabled{filter:grayscale(.7) brightness(.6);cursor:default}
+  .toggles{display:flex;gap:8px;align-items:center;margin-top:1px}
+  .chip{font-size:10px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+    padding:5px 9px;border-radius:99px;border:1px solid var(--line);background:rgba(255,255,255,.04);
+    color:var(--ink);cursor:pointer;opacity:.7}
+  .chip.on{opacity:1;border-color:var(--readout);color:var(--readout)}
+
+  /* ---- Overlay ---- */
+  #overlay{position:absolute;inset:0;background:rgba(8,6,14,.82);backdrop-filter:blur(8px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    text-align:center;padding:24px;z-index:20}
+  #overlay h1{margin:0;font-size:clamp(30px,9vw,52px);font-weight:800;letter-spacing:.02em;
+    background:linear-gradient(90deg,var(--p1),var(--p2));-webkit-background-clip:text;
+    background-clip:text;color:transparent}
+  #overlay p{margin:0;opacity:.7;max-width:340px;line-height:1.5;font-size:14px}
+  #overlay .grp{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .big{font-size:15px;font-weight:700;padding:13px 22px;border-radius:12px;border:1px solid var(--line);
+    background:rgba(255,255,255,.06);color:var(--ink);cursor:pointer}
+  .big.go{background:linear-gradient(90deg,var(--p1),#ff9d63);border:none;color:#190b04}
+  .sub{font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.5}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="cv"></canvas>
+
+  <div id="hud">
+    <div class="bar"><div class="name"><span id="n1">Player 1</span><span id="h1">100</span></div>
+      <div class="hp" id="c1"><i style="width:100%"></i></div></div>
+    <div id="wind"><div class="lab">Wind</div><div class="val" id="windVal">→ 0.0</div></div>
+    <div class="bar"><div class="name" style="flex-direction:row-reverse"><span id="n2">CPU</span><span id="h2">100</span></div>
+      <div class="hp" id="c2"><i style="width:100%"></i></div></div>
+  </div>
+  <div id="turnTag">Player 1 to fire</div>
+
+  <div id="deck">
+    <div class="dials">
+      <div class="weps" id="weps"></div>
+      <div class="row"><label>Angle</label>
+        <input id="angle" type="range" min="0" max="180" value="45" step="1">
+        <span class="read" id="angleR">45°</span></div>
+      <div class="row"><label>Power</label>
+        <input id="power" type="range" min="5" max="100" value="55" step="1">
+        <span class="read" id="powerR">55</span></div>
+      <div class="toggles">
+        <span class="chip on" id="assistBtn">Aim assist</span>
+        <span class="chip" id="menuBtn">Menu</span>
+        <span style="font-size:10px;opacity:.45;letter-spacing:.08em">Drag the battlefield to aim</span>
+      </div>
+    </div>
+    <button id="fire">Fire</button>
+  </div>
+
+  <div id="overlay">
+    <div class="sub">Artillery Duel</div>
+    <h1>HOWITZER</h1>
+    <p>Adjust angle and power, mind the wind, and blow your opponent off the map. Drag anywhere on the field to aim, or use the dials.</p>
+    <div class="grp">
+      <button class="big go" data-mode="cpu-easy">vs CPU · Cadet</button>
+      <button class="big go" data-mode="cpu-hard">vs CPU · Veteran</button>
+    </div>
+    <div class="grp">
+      <button class="big" data-mode="pvp">2 Players · Pass &amp; Play</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+"use strict";
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+
+// ---------- Game state ----------
+const G = {
+  mode: 'cpu-easy',
+  ground: null,          // Float32Array length = W (logical px), surface y per column
+  tanks: [],             // {x, y, hp, color, name, ai}
+  turn: 0,               // index of active tank
+  wind: 0,               // horizontal acceleration on shells
+  phase: 'menu',         // menu | aim | flight | settle | over
+  proj: null,            // active projectile
+  particles: [],
+  shake: 0,
+  assist: true,
+  weapon: 0,
+};
+const GRAV = 0.0011;      // px / ms^2  (scaled per frame below)
+const POWER_SCALE = 0.62; // velocity per power point (px/ms-ish)
+
+const WEAPONS = [
+  { name:'Shell',  sub:'standard',  blast:34,  dmg:34,  type:'single' },
+  { name:'Heavy',  sub:'big crater',blast:58,  dmg:52,  type:'single' },
+  { name:'Cluster',sub:'splits ×3', blast:26,  dmg:22,  type:'cluster' },
+];
+
+// ---------- Sizing ----------
+function resize(){
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  const r = cv.getBoundingClientRect();
+  W = Math.max(320, Math.floor(r.width));
+  H = Math.max(240, Math.floor(r.height));
+  cv.width = Math.floor(W * DPR);
+  cv.height = Math.floor(H * DPR);
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  if (G.phase !== 'menu' && G.ground) reflowTerrain();
+}
+window.addEventListener('resize', resize);
+
+// Keep terrain proportional if the viewport changes mid-game
+function reflowTerrain(){
+  const old = G.ground, oldW = old.length;
+  const next = new Float32Array(W);
+  for (let x=0;x<W;x++){ const s = x/(W-1)*(oldW-1); next[x] = old[Math.round(s)] / (lastH||H) * H; }
+  G.ground = next; lastH = H;
+  for (const t of G.tanks){ t.x = Math.min(W-20, Math.max(20, t.x)); settleTank(t); }
+}
+let lastH = 0;
+
+// ---------- Terrain ----------
+function makeTerrain(){
+  const g = new Float32Array(W);
+  const base = H * 0.62;
+  // layered sine ridges + a little jitter for a rolling skyline
+  const a = [ {amp:H*0.13, len: W*0.9, ph: Math.random()*7},
+              {amp:H*0.07, len: W*0.34, ph: Math.random()*7},
+              {amp:H*0.035,len: W*0.13, ph: Math.random()*7} ];
+  for (let x=0;x<W;x++){
+    let y = base;
+    for (const w of a) y -= w.amp * Math.sin((x/w.len)*Math.PI*2 + w.ph);
+    g[x] = Math.min(H-10, Math.max(H*0.30, y));
+  }
+  G.ground = g; lastH = H;
+}
+
+function groundAt(x){
+  const i = Math.round(x);
+  if (i < 0 || i >= W) return H + 50;
+  return G.ground[i];
+}
+
+function carveCrater(cx, cy, r){
+  const x0 = Math.max(0, Math.floor(cx - r));
+  const x1 = Math.min(W-1, Math.ceil(cx + r));
+  for (let x=x0;x<=x1;x++){
+    const dx = x - cx;
+    const inside = r*r - dx*dx;
+    if (inside <= 0) continue;
+    const depth = Math.sqrt(inside);
+    const floor = cy + depth;             // bottom edge of blast circle
+    if (floor > G.ground[x]) G.ground[x] = Math.min(H + 40, floor);
+  }
+}
+
+// ---------- Tanks ----------
+function settleTank(t){
+  const target = groundAt(t.x);
+  const fall = target - t.y;
+  if (fall > 2 && G.phase !== 'menu'){
+    // small fall damage when ground drops out under a tank
+    const dmg = Math.min(20, Math.floor(fall * 0.10));
+    if (dmg > 0 && t.hp > 0){ t.hp = Math.max(0, t.hp - dmg); }
+  }
+  t.y = target;
+}
+
+function newGame(mode){
+  G.mode = mode;
+  G.phase = 'aim';
+  G.particles.length = 0;
+  G.proj = null; G.shake = 0;
+  makeTerrain();
+  const lx = Math.round(W * (0.10 + Math.random()*0.06));
+  const rx = Math.round(W * (0.84 + Math.random()*0.06));
+  const cpu = mode.startsWith('cpu');
+  G.tanks = [
+    { x:lx, y:groundAt(lx), hp:100, color:getC('--p1'), name:'Player 1', ai:false, dir:1 },
+    { x:rx, y:groundAt(rx), hp:100, color:getC('--p2'),
+      name: cpu ? (mode==='cpu-hard'?'Veteran':'Cadet') : 'Player 2',
+      ai: cpu, skill: mode==='cpu-hard'?0.85:0.45, dir:-1 },
+  ];
+  G.turn = 0;
+  rollWind();
+  document.getElementById('n1').textContent = G.tanks[0].name;
+  document.getElementById('n2').textContent = G.tanks[1].name;
+  G.weapon = 0; renderWeps();
+  // sensible defaults facing inward
+  setAngle(50); setPower(55);
+  syncHUD();
+  overlay.classList.add('hidden');
+  beginTurn();
+}
+
+function rollWind(){ G.wind = +( (Math.random()*2-1) * 0.0009 ).toFixed(5); }
+
+function getC(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+// ---------- Turn flow ----------
+function beginTurn(){
+  const t = G.tanks[G.turn];
+  G.phase = 'aim';
+  // default barrel faces the enemy
+  setAngle(t.dir>0 ? 50 : 130);
+  syncHUD();
+  fireBtn.disabled = false;
+  if (t.ai){ fireBtn.disabled = true; setTimeout(aiTurn, 650); }
+}
+
+function endTurn(){
+  // win check
+  const dead = G.tanks.filter(t=>t.hp<=0);
+  if (dead.length){ return gameOver(); }
+  G.turn = 1 - G.turn;
+  rollWind();
+  beginTurn();
+}
+
+function gameOver(){
+  G.phase = 'over';
+  const alive = G.tanks.find(t=>t.hp>0);
+  const winner = alive ? alive.name : 'Nobody';
+  overlay.querySelector('.sub').textContent = 'Battle over';
+  overlay.querySelector('h1').textContent = (winner+' wins').toUpperCase();
+  overlay.querySelector('p').textContent = alive
+    ? 'Direct hit. Want a rematch?'
+    : 'Mutual destruction — what a finish.';
+  const grp = overlay.querySelectorAll('.grp');
+  grp.forEach(g=>g.classList.remove('hidden'));
+  overlay.classList.remove('hidden');
+  fireBtn.disabled = true;
+}
+
+// ---------- Firing ----------
+function currentAngleRad(){ return (+angleEl.value) * Math.PI/180; }
+
+function spawnProjectile(angleDeg, power, weaponIdx){
+  const t = G.tanks[G.turn];
+  const rad = angleDeg*Math.PI/180;
+  const bx = t.x + Math.cos(rad)*22;
+  const by = t.y - 14 - Math.sin(rad)*22;
+  const v = power * POWER_SCALE * 0.06;     // tuned launch speed
+  G.proj = {
+    x:bx, y:by,
+    vx: Math.cos(rad)*v,
+    vy: -Math.sin(rad)*v,
+    w: weaponIdx,
+    owner: G.turn,
+    trail: [],
+    childrenSpawned:false,
+  };
+  G.phase = 'flight';
+  fireBtn.disabled = true;
+}
+
+function doFire(){
+  if (G.phase !== 'aim') return;
+  spawnProjectile(+angleEl.value, +powerEl.value, G.weapon);
+}
+
+function explode(x, y, weapon, owner){
+  const w = WEAPONS[weapon];
+  carveCrater(x, y, w.blast);
+  // damage tanks with linear falloff
+  for (const t of G.tanks){
+    const d = Math.hypot(t.x - x, (t.y-10) - y);
+    if (d < w.blast + 6){
+      const dmg = Math.round(w.dmg * (1 - d/(w.blast+6)));
+      t.hp = Math.max(0, t.hp - dmg);
+    }
+  }
+  // particles
+  const n = 18 + Math.floor(w.blast/2);
+  for (let i=0;i<n;i++){
+    const a = Math.random()*Math.PI*2, s = Math.random()*0.28 + 0.05;
+    G.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s - 0.05,
+      life:1, r: Math.random()*3+1, hue: Math.random()<0.5?'#ffce6b':'#ff7a3c'});
+  }
+  G.shake = Math.min(16, w.blast*0.28);
+}
+
+// ---------- Physics step ----------
+function stepFlight(dt){
+  const p = G.proj;
+  if (!p) return;
+  const steps = 4; const h = dt/steps;
+  for (let s=0;s<steps;s++){
+    p.vy += GRAV * h;
+    p.vx += G.wind * h;
+    p.x += p.vx * h;
+    p.y += p.vy * h;
+
+    // cluster split at apex
+    const w = WEAPONS[p.w];
+    if (w.type==='cluster' && !p.childrenSpawned && p.vy > 0 && p.y < H*0.5){
+      p.childrenSpawned = true;
+      G.cluster = [];
+      for (let k=-1;k<=1;k++){
+        G.cluster.push({ x:p.x, y:p.y, vx:p.vx + k*0.12, vy:p.vy*0.6,
+          w:p.w, owner:p.owner, trail:[] });
+      }
+      p.dead = true; break;
+    }
+
+    if (hitTest(p)) { p.dead = true; break; }
+  }
+  if (p.trail.length>26) p.trail.shift();
+  p.trail.push({x:p.x,y:p.y});
+
+  if (p.dead){
+    if (G.cluster){ G.proj = null; G.phase='flight-cluster'; return; }
+    finishShot(p);
+  }
+}
+
+function stepClusters(dt){
+  const arr = G.cluster; if (!arr) return;
+  const steps=4, h=dt/steps;
+  for (const p of arr){
+    if (p.dead) continue;
+    for (let s=0;s<steps;s++){
+      p.vy += GRAV*h; p.vx += G.wind*h; p.x += p.vx*h; p.y += p.vy*h;
+      if (hitTest(p)){ p.dead=true; explode(p.x,p.y,p.w,p.owner); break; }
+    }
+    p.trail.push({x:p.x,y:p.y}); if (p.trail.length>16) p.trail.shift();
+  }
+  if (arr.every(p=>p.dead)){ G.cluster=null; afterImpact(); }
+}
+
+function hitTest(p){
+  if (p.x < -60 || p.x > W+60){ p.off = true; return true; }
+  if (p.y > H+60){ p.off = true; return true; }
+  if (p.y >= groundAt(p.x)) return true;
+  for (const t of G.tanks){
+    if (Math.hypot(t.x-p.x, (t.y-12)-p.y) < 15) return true;
+  }
+  return false;
+}
+
+function finishShot(p){
+  if (!p.off) explode(p.x, p.y, p.w, p.owner);
+  G.proj = null;
+  afterImpact();
+}
+
+function afterImpact(){
+  G.phase = 'settle';
+  // let particles & terrain settle briefly, then resolve
+  setTimeout(()=>{ for (const t of G.tanks) settleTank(t); syncHUD();
+    setTimeout(endTurn, 250); }, 260);
+}
+
+// ---------- Simple AI ----------
+function simulateLanding(angleDeg, power, fromTank, weapon){
+  const rad = angleDeg*Math.PI/180;
+  const v = power*POWER_SCALE*0.06;
+  let x = fromTank.x + Math.cos(rad)*22;
+  let y = fromTank.y - 14 - Math.sin(rad)*22;
+  let vx = Math.cos(rad)*v, vy = -Math.sin(rad)*v;
+  for (let i=0;i<2400;i++){
+    vy += GRAV*4; vx += G.wind*4; x += vx*4; y += vy*4;
+    if (x<-60||x>W+60||y>H+60) return {x, miss:true};
+    if (y >= groundAt(x)) return {x, miss:false};
+  }
+  return {x, miss:true};
+}
+
+function aiTurn(){
+  const me = G.tanks[G.turn], foe = G.tanks[1-G.turn];
+  const dirRight = foe.x > me.x;
+  let best=null;
+  // search a grid of angle/power, score by distance of landing to foe
+  for (let a=20;a<=75;a+=3){
+    const ang = dirRight ? a : 180-a;
+    for (let pw=30;pw<=100;pw+=4){
+      const r = simulateLanding(ang, pw, me, G.weapon);
+      const err = Math.abs(r.x - foe.x) + (r.miss?260:0);
+      if (!best || err<best.err) best={ang,pw,err};
+    }
+  }
+  // skill-based inaccuracy: lower skill => wider scatter
+  const scatter = (1 - me.skill);
+  const ang = best.ang + (Math.random()*2-1)*16*scatter;
+  const pw  = Math.max(10, Math.min(100, best.pw + (Math.random()*2-1)*22*scatter));
+  setAngle(ang); setPower(pw); syncHUD();
+  setTimeout(()=> spawnProjectile(ang, pw, G.weapon), 500);
+}
+
+// ---------- Rendering ----------
+let skyGrad = null, skyKey='';
+function drawSky(){
+  const key = W+'x'+H;
+  if (key!==skyKey){ skyKey=key;
+    skyGrad = ctx.createLinearGradient(0,0,0,H);
+    skyGrad.addColorStop(0, getC('--sky-top'));
+    skyGrad.addColorStop(.55, getC('--sky-mid'));
+    skyGrad.addColorStop(1, getC('--sky-low'));
+  }
+  ctx.fillStyle = skyGrad; ctx.fillRect(0,0,W,H);
+  // distant sun glow
+  ctx.save();
+  const g = ctx.createRadialGradient(W*0.5,H*0.66,0,W*0.5,H*0.66,W*0.5);
+  g.addColorStop(0,'rgba(255,210,140,.5)'); g.addColorStop(1,'rgba(255,210,140,0)');
+  ctx.fillStyle=g; ctx.fillRect(0,0,W,H); ctx.restore();
+}
+
+function drawTerrain(){
+  ctx.beginPath();
+  ctx.moveTo(0,H);
+  for (let x=0;x<W;x++) ctx.lineTo(x, G.ground[x]);
+  ctx.lineTo(W,H); ctx.closePath();
+  const tg = ctx.createLinearGradient(0,H*0.3,0,H);
+  tg.addColorStop(0, getC('--sand')); tg.addColorStop(1, getC('--sand-dark'));
+  ctx.fillStyle = tg; ctx.fill();
+  // crisp grass line
+  ctx.beginPath(); ctx.moveTo(0,G.ground[0]);
+  for (let x=1;x<W;x++) ctx.lineTo(x,G.ground[x]);
+  ctx.strokeStyle='rgba(255,255,255,.14)'; ctx.lineWidth=2; ctx.stroke();
+}
+
+function drawTank(t, active){
+  ctx.save();
+  ctx.translate(t.x, t.y);
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,.25)';
+  ctx.beginPath(); ctx.ellipse(0,2,18,5,0,0,7); ctx.fill();
+  // body
+  ctx.fillStyle = t.color;
+  roundRect(-15,-12,30,12,4); ctx.fill();
+  ctx.beginPath(); ctx.arc(0,-12,8,Math.PI,0); ctx.fill(); // turret dome
+  // barrel
+  let ang;
+  if (active && G.phase==='aim') ang = currentAngleRad();
+  else ang = (t.dir>0?50:130)*Math.PI/180;
+  ctx.strokeStyle = t.color; ctx.lineWidth=5; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(0,-13);
+  ctx.lineTo(Math.cos(ang)*22, -13 - Math.sin(ang)*22); ctx.stroke();
+  // active ring
+  if (active && G.phase==='aim'){
+    ctx.strokeStyle='rgba(255,255,255,.55)'; ctx.lineWidth=2;
+    ctx.setLineDash([3,4]);
+    ctx.beginPath(); ctx.arc(0,-6,26,0,7); ctx.stroke(); ctx.setLineDash([]);
+  }
+  ctx.restore();
+}
+
+function drawAimArc(){
+  if (!G.assist) return;
+  const t = G.tanks[G.turn];
+  if (t.ai || G.phase!=='aim') return;
+  const rad = currentAngleRad(); const v = (+powerEl.value)*POWER_SCALE*0.06;
+  let x = t.x + Math.cos(rad)*22, y = t.y-14 - Math.sin(rad)*22;
+  let vx = Math.cos(rad)*v, vy = -Math.sin(rad)*v;
+  ctx.save(); ctx.fillStyle='rgba(244,236,223,.5)';
+  for (let i=0;i<70;i++){
+    for (let s=0;s<6;s++){ vy+=GRAV*4; vx+=G.wind*4; x+=vx*4; y+=vy*4; }
+    if (x<0||x>W||y>H || y>=groundAt(x)) break;
+    if (i%2===0){ ctx.beginPath(); ctx.arc(x,y,1.6,0,7); ctx.fill(); }
+  }
+  ctx.restore();
+}
+
+function drawProjectiles(){
+  const list = [];
+  if (G.proj) list.push(G.proj);
+  if (G.cluster) for (const c of G.cluster) if (!c.dead) list.push(c);
+  for (const p of list){
+    // trail
+    ctx.beginPath();
+    for (let i=0;i<p.trail.length;i++){ const pt=p.trail[i];
+      if(i===0)ctx.moveTo(pt.x,pt.y); else ctx.lineTo(pt.x,pt.y); }
+    ctx.strokeStyle='rgba(255,206,107,.45)'; ctx.lineWidth=2; ctx.stroke();
+    ctx.beginPath(); ctx.arc(p.x,p.y,4,0,7);
+    ctx.fillStyle='#fff4d8'; ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x,p.y,2,0,7); ctx.fillStyle='#ff7a3c'; ctx.fill();
+  }
+}
+
+function drawParticles(dt){
+  for (let i=G.particles.length-1;i>=0;i--){
+    const p=G.particles[i];
+    p.vy += 0.0006*dt; p.x += p.vx*dt; p.y += p.vy*dt; p.life -= dt*0.0016;
+    if (p.life<=0){ G.particles.splice(i,1); continue; }
+    ctx.globalAlpha = Math.max(0,p.life);
+    ctx.fillStyle = p.hue;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,7); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+}
+
+function roundRect(x,y,w,h,r){ ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+// ---------- Main loop ----------
+let last = performance.now();
+function frame(now){
+  let dt = Math.min(48, now-last); last=now;
+  ctx.save();
+  if (G.shake>0){ const s=G.shake; ctx.translate((Math.random()*2-1)*s,(Math.random()*2-1)*s); G.shake*=0.88; if(G.shake<0.4)G.shake=0; }
+  drawSky();
+  if (G.phase!=='menu'){
+    drawTerrain();
+    drawAimArc();
+    for (let i=0;i<G.tanks.length;i++) drawTank(G.tanks[i], i===G.turn);
+    if (G.phase==='flight') stepFlight(dt);
+    else if (G.phase==='flight-cluster') stepClusters(dt);
+    drawProjectiles();
+    drawParticles(dt);
+  }
+  ctx.restore();
+  requestAnimationFrame(frame);
+}
+
+// ---------- Controls / HUD ----------
+const angleEl=document.getElementById('angle'), powerEl=document.getElementById('power');
+const angleR=document.getElementById('angleR'), powerR=document.getElementById('powerR');
+const fireBtn=document.getElementById('fire');
+const overlay=document.getElementById('overlay');
+
+function setAngle(v){ v=Math.max(0,Math.min(180,Math.round(v))); angleEl.value=v; angleR.textContent=v+'°'; }
+function setPower(v){ v=Math.max(5,Math.min(100,Math.round(v))); powerEl.value=v; powerR.textContent=v; }
+angleEl.addEventListener('input',()=>setAngle(+angleEl.value));
+powerEl.addEventListener('input',()=>setPower(+powerEl.value));
+
+function renderWeps(){
+  const c=document.getElementById('weps'); c.innerHTML='';
+  WEAPONS.forEach((w,i)=>{
+    const b=document.createElement('button');
+    b.className='wep'+(i===G.weapon?' on':'');
+    b.innerHTML = w.name+'<small>'+w.sub+'</small>';
+    b.onclick=()=>{ G.weapon=i; renderWeps(); };
+    c.appendChild(b);
+  });
+}
+
+function syncHUD(){
+  const a=G.tanks[0], b=G.tanks[1];
+  if(!a) return;
+  document.getElementById('h1').textContent=a.hp;
+  document.getElementById('h2').textContent=b.hp;
+  document.querySelector('#c1 i').style.width=a.hp+'%';
+  document.querySelector('#c2 i').style.width=b.hp+'%';
+  const w=G.wind, mag=Math.abs(w/0.0009);
+  const arrow = w>0.00002?'→':(w<-0.00002?'←':'•');
+  document.getElementById('windVal').textContent = arrow+' '+(mag*10).toFixed(1);
+  const t=G.tanks[G.turn];
+  document.getElementById('turnTag').textContent =
+    G.phase==='aim' ? (t.name+(t.ai?' is aiming…':' to fire')) :
+    G.phase==='over' ? '' : 'Shot in flight';
+  document.documentElement.style.setProperty('--accent', t? t.color : '#fff');
+}
+
+fireBtn.addEventListener('click', doFire);
+
+document.getElementById('assistBtn').addEventListener('click',e=>{
+  G.assist=!G.assist; e.target.classList.toggle('on',G.assist);
+});
+document.getElementById('menuBtn').addEventListener('click',()=>{
+  G.phase='menu'; overlay.classList.remove('hidden');
+  overlay.querySelector('.sub').textContent='Artillery Duel';
+  overlay.querySelector('h1').textContent='HOWITZER';
+  overlay.querySelector('p').textContent='Adjust angle and power, mind the wind, and blow your opponent off the map. Drag anywhere on the field to aim, or use the dials.';
+});
+
+overlay.querySelectorAll('[data-mode]').forEach(b=>{
+  b.addEventListener('click',()=>newGame(b.dataset.mode));
+});
+
+// ---- Drag-to-aim on the canvas ----
+let dragging=false;
+function pt(e){ const r=cv.getBoundingClientRect();
+  const p = e.touches?e.touches[0]:e; return {x:p.clientX-r.left, y:p.clientY-r.top}; }
+function aimFrom(pos){
+  const t=G.tanks[G.turn]; if(!t||t.ai||G.phase!=='aim') return;
+  const dx=pos.x-t.x, dy=(t.y-10)-pos.y;
+  let ang=Math.atan2(dy,dx)*180/Math.PI;
+  if(ang<0) ang+=360; if(ang>180) ang=ang>270?0:180;
+  setAngle(ang);
+  const dist=Math.hypot(dx,dy);
+  setPower(Math.max(5,Math.min(100, dist*0.55)));
+}
+cv.addEventListener('pointerdown',e=>{ if(G.phase!=='aim')return; dragging=true; aimFrom(pt(e)); });
+cv.addEventListener('pointermove',e=>{ if(dragging){ e.preventDefault(); aimFrom(pt(e)); }},{passive:false});
+window.addEventListener('pointerup',()=>{ dragging=false; });
+
+// ---------- boot ----------
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
