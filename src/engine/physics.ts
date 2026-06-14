@@ -19,7 +19,7 @@ export function simulateLanding(
 ): { x: number; y: number; miss: boolean } {
   let x = startX, y = startY;
   let vx = vel.vx, vy = vel.vy;
-  for (let i = 0; i < 2400; i++) {
+  for (let i = 0; i < 6000; i++) {
     vy += CFG.GRAV * 4; vx += wind * 4; x += vx * 4; y += vy * 4;
     if (x < -60 || x > W + 60 || y > H + 60) return { x, y, miss: true };
     if (y >= surfaceY(x)) return { x, y, miss: false };

@@ -208,7 +208,6 @@ export const WEAPONS: Weapon[] = [
     damage: 0,
     consumesShot: false,
     shakeAmount: 0,
-    speedMult: 2.5,
   },
 ];
 

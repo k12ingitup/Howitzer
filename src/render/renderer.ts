@@ -108,7 +108,7 @@ export class Renderer {
     const W = this.getW(), H = this.getH();
     this.ctx.save();
     this.ctx.fillStyle = 'rgba(244,236,223,.5)';
-    for (let i = 0; i < 120; i++) {
+    for (let i = 0; i < 240; i++) {
       for (let s = 0; s < CFG.SUBSTEPS; s++) {
         vy += CFG.GRAV * 4; vx += wind * 4; x += vx * 4; y += vy * 4;
       }
