@@ -35,7 +35,7 @@ let particles: Particle[] = [];
 let proj: ActiveProjectile | null = null;
 let clusterProjs: ActiveProjectile[] = [];
 // Aim arc OFF by default — use tracer to scout
-let assist = false;
+let assist = true;
 let tracerMarker: { x: number; y: number } | null = null;
 let tracerTimeout: ReturnType<typeof setTimeout> | null = null;
 let popups: ScorePopup[] = [];
@@ -440,6 +440,7 @@ function syncMatchHUD(): void {
 
 // ---- Buttons ----
 const assistBtn = document.getElementById('assistBtn')!;
+assistBtn.classList.add('on');
 assistBtn.addEventListener('click', e => {
   assist = !assist;
   (e.target as HTMLElement).classList.toggle('on', assist);
