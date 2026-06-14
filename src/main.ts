@@ -238,6 +238,27 @@ function doFire(): void {
   const power = +powerEl.value;
   const t = tanks[match.turn];
 
+  if (weapon.kind === 'hailstorm') {
+    const foe = tanks[1 - match.turn];
+    const count = weapon.clusterCount ?? 12;
+    clusterProjs = Array.from({ length: count }, () => ({
+      x: foe.x + (Math.random() * 240 - 120),
+      y: -20,
+      vx: Math.random() * 0.03 - 0.015,
+      vy: 0.08,
+      weapon,
+      owner: match.turn,
+      trail: [],
+      dead: false,
+      off: false,
+      childrenSpawned: false,
+    }));
+    match.phase = 'flight-cluster';
+    fireBtn.disabled = true;
+    syncMatchHUD();
+    return;
+  }
+
   if (weapon.kind === 'tracer') {
     tracerMarkers = [];
     tracerProjs = TRACER_OFFSETS.map(off => makeProjectile(t, weapon, angleDeg, power, off));
@@ -405,6 +426,19 @@ function stepFlight(dt: number): void {
       p.tunnelSteps = (p.tunnelSteps ?? 0) - 1;
       if (p.tunnelSteps <= 0) { p.dead = true; break; }
       continue;
+    }
+
+    if (p.weapon.kind === 'bouncer' && hitTestTerrain(p)) {
+      if ((p.bounceCount ?? 0) < 4) {
+        p.vy *= -0.65;
+        p.vx *= 0.85;
+        p.bounceCount = (p.bounceCount ?? 0) + 1;
+        p.y -= 3;
+        continue;
+      } else {
+        p.dead = true;
+        break;
+      }
     }
 
     if (!p.rolling && p.weapon.kind === 'roller' && hitTestTerrain(p)) {

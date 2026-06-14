@@ -9,7 +9,9 @@ export type WeaponKind =
   | 'tunneler'
   | 'homing'
   | 'napalm'
-  | 'earthquake';
+  | 'earthquake'
+  | 'bouncer'
+  | 'hailstorm';
 
 export type WeaponRarity = 'common' | 'rare' | 'legendary';
 export type WeaponCategory = 'attack' | 'terrain' | 'utility' | 'defense';
@@ -54,4 +56,5 @@ export interface ActiveProjectile {
   tunnelEntryX?: number;
   tunnelEntryY?: number;
   tracerOffset?: number;
+  bounceCount?: number;
 }
