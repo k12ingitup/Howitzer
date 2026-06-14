@@ -36,7 +36,7 @@ let proj: ActiveProjectile | null = null;
 let clusterProjs: ActiveProjectile[] = [];
 // Aim arc OFF by default — use tracer to scout
 let assist = true;
-let devMode = false;
+let devMode = true;
 let tracerMarker: { x: number; y: number } | null = null;
 let tracerTimeout: ReturnType<typeof setTimeout> | null = null;
 let popups: ScorePopup[] = [];
