@@ -24,6 +24,20 @@ export class Terrain {
     }
   }
 
+  // Flatten terrain to a level platform under a tank spawn point
+  flattenAt(cx: number, halfWidth: number): void {
+    const ix = Math.max(0, Math.min(this.W - 1, Math.round(cx)));
+    const target = this.height[ix];
+    const x0 = Math.max(0, Math.round(cx - halfWidth));
+    const x1 = Math.min(this.W - 1, Math.round(cx + halfWidth));
+    for (let x = x0; x <= x1; x++) {
+      // smooth blend: fully flat at center, taper at edges
+      const t = 1 - Math.abs(x - cx) / halfWidth;
+      const blend = t * t;
+      this.height[x] = this.height[x] * (1 - blend) + target * blend;
+    }
+  }
+
   collisionAt(x: number, y: number): boolean {
     const ix = Math.round(x);
     if (ix < 0 || ix >= this.W) return false;

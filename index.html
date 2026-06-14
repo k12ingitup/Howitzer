@@ -20,6 +20,7 @@
   #wrap{position:fixed;inset:0;display:flex;flex-direction:column}
   canvas{display:block;width:100%;flex:1 1 auto;touch-action:none}
 
+  /* HUD */
   #hud{position:absolute;top:0;left:0;right:0;padding:10px 12px;
     display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
     pointer-events:none;}
@@ -37,11 +38,13 @@
     padding:7px 11px;min-width:96px}
   #wind .lab{font-size:10px;letter-spacing:.18em;opacity:.65;text-transform:uppercase}
   #wind .val{font-size:15px;font-weight:700;color:var(--readout);margin-top:2px}
-  #turnTag{position:absolute;top:64px;left:50%;transform:translateX(-50%);
+  #wind .sub{font-size:9px;opacity:.5;letter-spacing:.08em;margin-top:1px}
+  #turnTag{position:absolute;top:70px;left:50%;transform:translateX(-50%);
     font-size:11px;letter-spacing:.22em;text-transform:uppercase;font-weight:700;
     background:rgba(12,10,20,.5);padding:4px 12px;border-radius:99px;border:1px solid var(--line);
-    pointer-events:none}
+    pointer-events:none;white-space:nowrap}
 
+  /* Deck */
   #deck{flex:0 0 auto;background:linear-gradient(180deg,rgba(12,10,20,.4),var(--hud) 38%);
     border-top:1px solid var(--line);padding:11px 12px calc(11px + env(safe-area-inset-bottom));
     display:grid;grid-template-columns:1fr auto;gap:11px;align-items:center}
@@ -59,7 +62,8 @@
     background:var(--ink);border:3px solid var(--accent,#fff)}
   .read{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:15px;font-weight:700;
     color:var(--readout);width:54px;text-align:right;flex:0 0 auto}
-  .weps{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+  .weps{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+  .weps::-webkit-scrollbar{display:none}
   .wep{flex:0 0 auto;font-size:11px;font-weight:700;letter-spacing:.04em;padding:7px 8px;
     border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,.05);
     color:var(--ink);cursor:pointer;text-align:center;line-height:1.15}
@@ -78,19 +82,33 @@
     color:var(--ink);cursor:pointer;opacity:.7}
   .chip.on{opacity:1;border-color:var(--readout);color:var(--readout)}
 
-  #overlay{position:absolute;inset:0;background:rgba(8,6,14,.82);backdrop-filter:blur(8px);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+  /* Overlays */
+  #overlay,#draft{position:absolute;inset:0;background:rgba(8,6,14,.88);backdrop-filter:blur(8px);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
     text-align:center;padding:24px;z-index:20}
-  #overlay h1{margin:0;font-size:clamp(30px,9vw,52px);font-weight:800;letter-spacing:.02em;
+  #overlay h1,#draft h1{margin:0;font-size:clamp(28px,8vw,50px);font-weight:800;letter-spacing:.02em;
     background:linear-gradient(90deg,var(--p1),var(--p2));-webkit-background-clip:text;
     background-clip:text;color:transparent}
   #overlay p{margin:0;opacity:.7;max-width:340px;line-height:1.5;font-size:14px}
-  #overlay .grp{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  #overlay .grp,#draft .grp{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
   .big{font-size:15px;font-weight:700;padding:13px 22px;border-radius:12px;border:1px solid var(--line);
     background:rgba(255,255,255,.06);color:var(--ink);cursor:pointer}
   .big.go{background:linear-gradient(90deg,var(--p1),#ff9d63);border:none;color:#190b04}
   .sub{font-size:11px;letter-spacing:.2em;text-transform:uppercase;opacity:.5}
   .hidden{display:none!important}
+
+  /* Draft screen */
+  #draft h2{margin:0;font-size:16px;letter-spacing:.1em;text-transform:uppercase;opacity:.7;font-weight:700}
+  .draft-cols{display:flex;gap:20px;width:100%;max-width:500px}
+  .draft-col{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:12px}
+  .draft-col-name{font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;
+    margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .draft-col ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;
+    max-height:220px;overflow-y:auto;scrollbar-width:none}
+  .draft-col ul::-webkit-scrollbar{display:none}
+  .draft-col li{font-size:12px;font-weight:700;padding:4px 6px;border-radius:6px;
+    background:rgba(255,255,255,.04);display:flex;justify-content:space-between;align-items:center}
+  .draft-col li span{font-size:10px;opacity:.5;font-weight:500}
 </style>
 </head>
 <body>
@@ -103,7 +121,11 @@
       <div class="hp" id="c1"><i style="width:0%"></i></div>
       <div class="shots-label" id="shots1"></div>
     </div>
-    <div id="wind"><div class="lab">Wind</div><div class="val" id="windVal">• 0.0</div></div>
+    <div id="wind">
+      <div class="lab">Wind</div>
+      <div class="val" id="windVal">• 0.0</div>
+      <div class="sub" id="windSub">calm</div>
+    </div>
     <div class="bar">
       <div class="name" style="flex-direction:row-reverse"><span id="n2">CPU</span><span id="h2">0</span></div>
       <div class="hp" id="c2"><i style="width:0%"></i></div>
@@ -129,10 +151,11 @@
     <button id="fire">Fire</button>
   </div>
 
+  <!-- Main menu -->
   <div id="overlay">
     <div class="sub">Artillery Duel</div>
     <h1>HOWITZER</h1>
-    <p>Earn points by landing shots near your opponent. Most points after 10 shots wins.</p>
+    <p>Earn points by landing shots near your opponent. Most points after 10 shots wins. Each player gets a random weapon deal — pick wisely.</p>
     <div class="grp">
       <button class="big go" data-mode="cpu-easy" data-gamemode="score">vs CPU · Cadet</button>
       <button class="big go" data-mode="cpu-hard" data-gamemode="score">vs CPU · Veteran</button>
@@ -140,6 +163,25 @@
     <div class="grp">
       <button class="big" data-mode="pvp" data-gamemode="score">2 Players · Score</button>
       <button class="big" data-mode="pvp" data-gamemode="annihilation">2 Players · Annihilation</button>
+    </div>
+  </div>
+
+  <!-- Draft screen -->
+  <div id="draft" class="hidden">
+    <div class="sub">Weapons Dealt</div>
+    <h1>YOUR ARSENAL</h1>
+    <div class="draft-cols">
+      <div class="draft-col">
+        <div class="draft-col-name" id="draft-p1-name">Player 1</div>
+        <ul id="draft-p1-weapons"></ul>
+      </div>
+      <div class="draft-col">
+        <div class="draft-col-name" id="draft-p2-name">CPU</div>
+        <ul id="draft-p2-weapons"></ul>
+      </div>
+    </div>
+    <div class="grp">
+      <button class="big go" id="draft-start">Battle!</button>
     </div>
   </div>
 </div>

@@ -3,6 +3,13 @@ import { ActiveProjectile } from '../weapons/types';
 import { Particle, updateAndDrawParticles } from './particles';
 import { Tank } from '../weapons/behaviors';
 
+export interface ScorePopup {
+  x: number; y: number;
+  text: string;
+  life: number;   // 1 → 0
+  color: string;
+}
+
 export class Renderer {
   private skyGrad: CanvasGradient | null = null;
   private skyKey = '';
@@ -108,6 +115,26 @@ export class Renderer {
   drawProjectiles(projectiles: ActiveProjectile[]): void {
     for (const p of projectiles) {
       if (p.dead) continue;
+      if (p.rolling) {
+        // rolling: draw as a ball on ground
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y - 5, 6, 0, Math.PI * 2);
+        this.ctx.fillStyle = '#ffd08a';
+        this.ctx.fill();
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y - 5, 3, 0, Math.PI * 2);
+        this.ctx.fillStyle = '#ff7a3c';
+        this.ctx.fill();
+        continue;
+      }
+      if (p.tunneling) {
+        // tunneling: draw underground indicator
+        this.ctx.beginPath();
+        this.ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+        this.ctx.fillStyle = 'rgba(255,150,50,.6)';
+        this.ctx.fill();
+        continue;
+      }
       this.ctx.beginPath();
       for (let i = 0; i < p.trail.length; i++) {
         const pt = p.trail[i];
@@ -141,6 +168,40 @@ export class Renderer {
     ctx.font = 'bold 11px monospace';
     ctx.textAlign = 'center';
     ctx.fillText('TRACER', x, y - 14);
+    ctx.restore();
+  }
+
+  drawScorePopups(popups: ScorePopup[], dt: number): void {
+    const ctx = this.ctx;
+    for (let i = popups.length - 1; i >= 0; i--) {
+      const p = popups[i];
+      p.life -= dt * 0.0018;
+      p.y -= dt * 0.04;
+      if (p.life <= 0) { popups.splice(i, 1); continue; }
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, p.life * 2);
+      ctx.fillStyle = p.color;
+      ctx.font = 'bold 22px ui-monospace,monospace';
+      ctx.textAlign = 'center';
+      ctx.shadowColor = 'rgba(0,0,0,.6)';
+      ctx.shadowBlur = 6;
+      ctx.fillText(p.text, p.x, p.y);
+      ctx.restore();
+    }
+  }
+
+  drawTurnBanner(text: string, alpha: number): void {
+    if (alpha <= 0) return;
+    const W = this.getW(), H = this.getH();
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = 'rgba(8,6,14,.7)';
+    ctx.fillRect(0, H * 0.38, W, 60);
+    ctx.fillStyle = '#f4ecdf';
+    ctx.font = 'bold 18px ui-sans-serif,system-ui,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(text, W / 2, H * 0.38 + 36);
     ctx.restore();
   }
 

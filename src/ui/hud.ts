@@ -18,10 +18,12 @@ export function syncHUD(data: HUDData): void {
   if (data.mode === 'score') {
     $('h1').textContent = String(data.p1Score);
     $('h2').textContent = String(data.p2Score);
-    ($('c1').querySelector('i') as HTMLElement).style.width = Math.min(100, data.p1Score) + '%';
-    ($('c2').querySelector('i') as HTMLElement).style.width = Math.min(100, data.p2Score) + '%';
-    const s1 = $('shots1'); if (s1) s1.textContent = `${data.p1ShotsLeft} shots left`;
-    const s2 = $('shots2'); if (s2) s2.textContent = `${data.p2ShotsLeft} shots left`;
+    const pct1 = Math.min(100, (data.p1Score / 200) * 100);
+    const pct2 = Math.min(100, (data.p2Score / 200) * 100);
+    ($('c1').querySelector('i') as HTMLElement).style.width = pct1 + '%';
+    ($('c2').querySelector('i') as HTMLElement).style.width = pct2 + '%';
+    const s1 = $('shots1'); if (s1) s1.textContent = `${data.p1ShotsLeft} left`;
+    const s2 = $('shots2'); if (s2) s2.textContent = `${data.p2ShotsLeft} left`;
   } else {
     $('h1').textContent = String(data.p1HP);
     $('h2').textContent = String(data.p2HP);
@@ -34,12 +36,15 @@ export function syncHUD(data: HUDData): void {
   const w = data.wind;
   const mag = Math.abs(w / 0.0009);
   const arrow = w > 0.00002 ? '→' : w < -0.00002 ? '←' : '•';
+  const strength = mag < 3 ? 'calm' : mag < 6 ? 'breezy' : mag < 8 ? 'strong' : 'GALE';
   $('windVal').textContent = arrow + ' ' + (mag * 10).toFixed(1);
+  const windSub = $('windSub'); if (windSub) windSub.textContent = strength;
 
   const turnName = data.turn === 0 ? data.p1Name : data.p2Name;
   const isAI = data.turn === 0 ? data.p1AI : data.p2AI;
   $('turnTag').textContent =
     data.phase === 'aim' ? turnName + (isAI ? ' is aiming…' : ' to fire') :
+    data.phase === 'transition' ? '' :
     data.phase === 'over' ? '' : 'Shot in flight';
 
   document.documentElement.style.setProperty('--accent', data.accentColor);

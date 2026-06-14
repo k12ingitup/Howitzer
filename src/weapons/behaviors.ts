@@ -28,6 +28,53 @@ export function applyExplosion(
     return tanks.map(() => 0);
   }
 
+  if (weapon.kind === 'dirtWall') {
+    const r = weapon.dirtRadius ?? weapon.blastRadius;
+    // vertical column of dirt
+    for (let dy = -r * 2; dy <= r; dy += 4) {
+      terrain.addDirt(x, y + dy, r * 0.7);
+    }
+    spawnSmokePuff(x, y, particles, weapon.blastRadius * 2);
+    return tanks.map(() => 0);
+  }
+
+  if (weapon.kind === 'earthquake') {
+    const count = weapon.quakeCount ?? 6;
+    const spread = weapon.quakeSpread ?? 150;
+    for (let i = 0; i < count; i++) {
+      const ex = x + (Math.random() * 2 - 1) * spread;
+      const ey = terrain.surfaceY(ex);
+      terrain.destroy(ex, ey, weapon.blastRadius);
+      spawnExplosionParticles(ex, ey, weapon.blastRadius * 0.6, particles);
+    }
+    const damages: number[] = [];
+    for (const t of tanks) {
+      const d = Math.hypot(t.x - x, (t.y - 10) - y);
+      const range = (weapon.quakeSpread ?? 150) + weapon.blastRadius;
+      if (d < range) {
+        damages.push(Math.round(weapon.damage * (1 - d / range)));
+      } else {
+        damages.push(0);
+      }
+    }
+    return damages;
+  }
+
+  if (weapon.kind === 'napalm') {
+    terrain.destroy(x, y, weapon.blastRadius * 0.6);
+    spawnFireParticles(x, y, weapon.blastRadius, particles);
+    const damages: number[] = [];
+    for (const t of tanks) {
+      const d = Math.hypot(t.x - x, (t.y - 10) - y);
+      if (d < weapon.blastRadius + 6) {
+        damages.push(Math.round(weapon.damage * (1 - d / (weapon.blastRadius + 6))));
+      } else {
+        damages.push(0);
+      }
+    }
+    return damages;
+  }
+
   terrain.destroy(x, y, weapon.blastRadius);
   const damages: number[] = [];
   for (const t of tanks) {
@@ -56,6 +103,28 @@ export function spawnExplosionParticles(
       life: 1,
       r: Math.random() * 3 + 1,
       hue: Math.random() < 0.5 ? '#ffce6b' : '#ff7a3c',
+    });
+  }
+}
+
+export function spawnFireParticles(
+  x: number, y: number, radius: number, particles: Particle[]
+): void {
+  const n = 40 + Math.floor(radius);
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = Math.random() * 0.35 + 0.04;
+    const spread = Math.random() * radius * 0.8;
+    const px = x + Math.cos(a) * spread;
+    const py = y + Math.sin(a) * spread * 0.4;
+    const hues = ['#ff4500', '#ff7a3c', '#ffce6b', '#ff2200', '#ffaa00'];
+    particles.push({
+      x: px, y: py,
+      vx: Math.cos(a) * s * 0.3,
+      vy: -(Math.random() * 0.25 + 0.08),
+      life: 0.7 + Math.random() * 0.6,
+      r: Math.random() * 5 + 2,
+      hue: hues[Math.floor(Math.random() * hues.length)],
     });
   }
 }

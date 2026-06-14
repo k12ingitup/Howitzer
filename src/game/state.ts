@@ -1,5 +1,7 @@
+import { Weapon } from '../weapons/types';
+
 export type GameMode = 'score' | 'annihilation';
-export type GamePhase = 'menu' | 'aim' | 'flight' | 'flight-cluster' | 'settle' | 'over';
+export type GamePhase = 'menu' | 'draft' | 'aim' | 'flight' | 'flight-cluster' | 'settle' | 'transition' | 'over';
 export type AIDifficulty = 'easy' | 'hard';
 
 export interface MatchConfig {
@@ -17,5 +19,6 @@ export interface MatchState {
   scores: [number, number];
   hp: [number, number];
   wind: number;
-  selectedWeapon: [number, number];
+  selectedWeapon: [number, number];  // index into arsenals[turn]
+  arsenals: [Weapon[], Weapon[]];    // dealt weapon hands
 }
