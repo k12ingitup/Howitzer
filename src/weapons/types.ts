@@ -12,14 +12,16 @@ export type WeaponKind =
   | 'earthquake';
 
 export type WeaponRarity = 'common' | 'rare' | 'legendary';
+export type WeaponCategory = 'attack' | 'terrain' | 'utility' | 'defense';
 
 export interface Weapon {
   id: string;
   name: string;
   sub: string;
-  icon: string;           // emoji icon
-  color: string;          // weapon accent color
+  icon: string;
+  color: string;
   rarity: WeaponRarity;
+  category: WeaponCategory;
   kind: WeaponKind;
   blastRadius: number;
   damage: number;
@@ -30,6 +32,7 @@ export interface Weapon {
   shakeAmount: number;
   quakeCount?: number;
   quakeSpread?: number;
+  speedMult?: number;   // velocity multiplier vs standard (default 1)
 }
 
 export interface ActiveProjectile {
@@ -48,4 +51,5 @@ export interface ActiveProjectile {
   rollDist?: number;
   tunneling?: boolean;
   tunnelSteps?: number;
+  tracerOffset?: number;  // angle offset in degrees for tracer spread bullets
 }

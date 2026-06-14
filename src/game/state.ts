@@ -1,7 +1,7 @@
 import { Weapon } from '../weapons/types';
 
 export type GameMode = 'score' | 'annihilation';
-export type GamePhase = 'menu' | 'draft' | 'aim' | 'flight' | 'flight-cluster' | 'settle' | 'transition' | 'over';
+export type GamePhase = 'menu' | 'draft' | 'aim' | 'flight' | 'flight-cluster' | 'flight-tracer' | 'settle' | 'transition' | 'over';
 export type AIDifficulty = 'easy' | 'hard';
 
 export interface MatchConfig {

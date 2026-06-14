@@ -34,10 +34,11 @@ let match: MatchState;
 let particles: Particle[] = [];
 let proj: ActiveProjectile | null = null;
 let clusterProjs: ActiveProjectile[] = [];
-// Aim arc OFF by default — use tracer to scout
+let tracerProjs: ActiveProjectile[] = [];
 let assist = true;
 let devMode = true;
-let tracerMarker: { x: number; y: number } | null = null;
+export interface TracerMarker { x: number; y: number; offset: number; }
+let tracerMarkers: TracerMarker[] = [];
 let tracerTimeout: ReturnType<typeof setTimeout> | null = null;
 let popups: ScorePopup[] = [];
 let turnBanner = { text: '', alpha: 0, timer: 0 };
@@ -78,7 +79,7 @@ function newGame(menuMode: MenuMode, gameMode: GameModeChoice): void {
   particles = [];
   proj = null;
   clusterProjs = [];
-  tracerMarker = null;
+  tracerMarkers = [];
   popups = [];
   turnBanner = { text: '', alpha: 0, timer: 0 };
   renderer.shake = 0;
@@ -212,6 +213,23 @@ function currentWeapon() {
   return match.arsenals[match.turn][match.selectedWeapon[match.turn]];
 }
 
+const TRACER_OFFSETS = [-8, -4, 0, +4, +8];
+
+function makeProjectile(t: Tank, weapon: import('./weapons/types').Weapon, angleDeg: number, power: number, offsetDeg = 0): ActiveProjectile {
+  const a = angleDeg + offsetDeg;
+  const rad = a * Math.PI / 180;
+  const speed = weapon.speedMult ?? 1;
+  return {
+    x: t.x + Math.cos(rad) * 22,
+    y: t.y - 14 - Math.sin(rad) * 22,
+    vx: Math.cos(rad) * power * CFG.POWER_SCALE * 0.06 * speed,
+    vy: -Math.sin(rad) * power * CFG.POWER_SCALE * 0.06 * speed,
+    weapon, owner: match.turn,
+    trail: [], dead: false, off: false, childrenSpawned: false,
+    tracerOffset: offsetDeg,
+  };
+}
+
 function doFire(): void {
   if (match.phase !== 'aim') return;
   const weapon = currentWeapon();
@@ -219,15 +237,17 @@ function doFire(): void {
   const angleDeg = +angleEl.value;
   const power = +powerEl.value;
   const t = tanks[match.turn];
-  const rad = angleDeg * Math.PI / 180;
-  const vel = launchVelocity(angleDeg, power);
-  proj = {
-    x: t.x + Math.cos(rad) * 22,
-    y: t.y - 14 - Math.sin(rad) * 22,
-    vx: vel.vx, vy: vel.vy,
-    weapon, owner: match.turn,
-    trail: [], dead: false, off: false, childrenSpawned: false,
-  };
+
+  if (weapon.kind === 'tracer') {
+    tracerMarkers = [];
+    tracerProjs = TRACER_OFFSETS.map(off => makeProjectile(t, weapon, angleDeg, power, off));
+    match.phase = 'flight-tracer';
+    fireBtn.disabled = true;
+    syncMatchHUD();
+    return;
+  }
+
+  proj = makeProjectile(t, weapon, angleDeg, power);
   match.phase = 'flight';
   fireBtn.disabled = true;
   syncMatchHUD();
@@ -286,21 +306,39 @@ function onImpact(x: number, y: number, p: ActiveProjectile): void {
 }
 
 function finishShot(p: ActiveProjectile): void {
-  if (!p.off) {
-    if (p.weapon.kind === 'tracer') {
-      tracerMarker = { x: p.x, y: p.y };
-      if (tracerTimeout) clearTimeout(tracerTimeout);
-      tracerTimeout = setTimeout(() => { tracerMarker = null; }, 3500);
-      proj = null;
-      match.phase = 'aim';
-      fireBtn.disabled = false;
-      syncMatchHUD();
-      return;
-    }
-    onImpact(p.x, p.y, p);
-  }
+  if (!p.off) onImpact(p.x, p.y, p);
   proj = null;
   afterImpact(p.weapon.consumesShot);
+}
+
+function stepTracers(dt: number): void {
+  const h = dt / CFG.SUBSTEPS;
+  for (const p of tracerProjs) {
+    if (p.dead) continue;
+    for (let s = 0; s < CFG.SUBSTEPS; s++) {
+      p.vy += CFG.GRAV * h;
+      p.vx += match.wind * h;
+      p.x += p.vx * h;
+      p.y += p.vy * h;
+      if (p.x < -60 || p.x > W + 60 || p.y > H + 60) { p.dead = true; p.off = true; break; }
+      if (collidesWithTerrain(p.x, p.y, terrain, W, H)) { p.dead = true; break; }
+    }
+    if (!p.off && !p.tunneling) {
+      if (p.trail.length > 18) p.trail.shift();
+      p.trail.push({ x: p.x, y: p.y });
+    }
+    if (p.dead && !p.off) {
+      tracerMarkers.push({ x: p.x, y: p.y, offset: p.tracerOffset ?? 0 });
+    }
+  }
+  if (tracerProjs.every(p => p.dead)) {
+    tracerProjs = [];
+    if (tracerTimeout) clearTimeout(tracerTimeout);
+    tracerTimeout = setTimeout(() => { tracerMarkers = []; }, 5000);
+    match.phase = 'aim';
+    fireBtn.disabled = false;
+    syncMatchHUD();
+  }
 }
 
 function afterImpact(consumedShot: boolean): void {
@@ -493,16 +531,18 @@ function frame(now: number): void {
 
     if (match.phase === 'flight') stepFlight(dt);
     else if (match.phase === 'flight-cluster') stepClusters(dt);
+    else if (match.phase === 'flight-tracer') stepTracers(dt);
 
     const allProjs: ActiveProjectile[] = [];
     if (proj) allProjs.push(proj);
     for (const p of clusterProjs) if (!p.dead) allProjs.push(p);
+    for (const p of tracerProjs) if (!p.dead) allProjs.push(p);
     renderer.drawProjectiles(allProjs);
     renderer.updateParticles(particles, dt);
     renderer.drawFlash(dt);
     renderer.drawScorePopups(popups, dt);
 
-    if (tracerMarker) renderer.drawTracerMarker(tracerMarker.x, tracerMarker.y);
+    if (tracerMarkers.length > 0) renderer.drawTracerMarkers(tracerMarkers);
 
     if (turnBanner.alpha > 0) {
       turnBanner.timer -= dt;

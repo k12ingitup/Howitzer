@@ -172,19 +172,41 @@ export class Renderer {
     }
   }
 
-  drawTracerMarker(x: number, y: number): void {
+  drawTracerMarkers(markers: Array<{ x: number; y: number; offset: number }>): void {
     const ctx = this.ctx;
     ctx.save();
-    ctx.strokeStyle = '#9af7c9';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(x - 12, y); ctx.lineTo(x + 12, y);
-    ctx.moveTo(x, y - 12); ctx.lineTo(x, y + 12);
-    ctx.stroke();
-    ctx.fillStyle = '#9af7c9';
-    ctx.font = 'bold 11px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('TRACER', x, y - 18);
+    for (const m of markers) {
+      const label = m.offset === 0 ? '0°' : (m.offset > 0 ? `+${m.offset}°` : `${m.offset}°`);
+      // vertical pulse line
+      ctx.strokeStyle = '#00ff66';
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.7;
+      ctx.beginPath();
+      ctx.moveTo(m.x, m.y - 28);
+      ctx.lineTo(m.x, m.y + 6);
+      ctx.stroke();
+      // crosshair
+      ctx.lineWidth = 2;
+      ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      ctx.moveTo(m.x - 8, m.y); ctx.lineTo(m.x + 8, m.y);
+      ctx.stroke();
+      // dot
+      ctx.fillStyle = '#00ff66';
+      ctx.globalAlpha = 1;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      // angle label
+      ctx.font = 'bold 12px ui-monospace,monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#00ff66';
+      ctx.shadowColor = 'rgba(0,255,102,.8)';
+      ctx.shadowBlur = 6;
+      ctx.fillText(label, m.x, m.y - 32);
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1;
     ctx.restore();
   }
 
