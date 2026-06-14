@@ -1,15 +1,4 @@
-export type WeaponKind =
-  | 'single'
-  | 'cluster'
-  | 'mirv'
-  | 'roller'
-  | 'addDirt'
-  | 'dirtWall'
-  | 'tracer'
-  | 'tunneler'
-  | 'homing'
-  | 'napalm'
-  | 'earthquake';
+export type WeaponKind = 'single' | 'cluster' | 'roller' | 'addDirt' | 'tracer';
 
 export interface Weapon {
   id: string;
@@ -20,12 +9,10 @@ export interface Weapon {
   damage: number;
   clusterCount?: number;
   clusterSpread?: number;
+  rollerDistance?: number;
   dirtRadius?: number;
   consumesShot: boolean;
   shakeAmount: number;
-  // earthquake: number of craters
-  quakeCount?: number;
-  quakeSpread?: number;
 }
 
 export interface ActiveProjectile {
@@ -39,11 +26,4 @@ export interface ActiveProjectile {
   dead: boolean;
   off: boolean;
   childrenSpawned?: boolean;
-  // roller
-  rolling?: boolean;
-  rollDir?: number;
-  rollDist?: number;
-  // tunneler
-  tunneling?: boolean;
-  tunnelSteps?: number;
 }
