@@ -29,15 +29,11 @@ export function createMatch(config: MatchConfig): MatchState {
   };
 }
 
-export function rollWind(): number {
-  return +((Math.random() * 2 - 1) * 0.0009).toFixed(5);
-}
+export function rollWind(): number { return 0; }
 
 // Wind drifts gradually each turn instead of snapping to a new random value
 export function driftWind(current: number): number {
-  const delta = (Math.random() * 2 - 1) * 0.00018;
-  const next = Math.max(-0.00088, Math.min(0.00088, current + delta));
-  return parseFloat(next.toFixed(5));
+  return 0;
 }
 
 export function recordShotResult(
