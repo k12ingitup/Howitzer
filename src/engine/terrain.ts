@@ -11,16 +11,30 @@ export class Terrain {
 
   generate(): void {
     const W = this.W, H = this.H;
-    const base = H * 0.62;
+    const base = H * 0.72;
+
+    // Central mountain — the defining feature of the map
+    const peakX = W * (0.42 + Math.random() * 0.16);
+    const peakH = H * (0.30 + Math.random() * 0.18);
+    const peakW = W * (0.22 + Math.random() * 0.12);
+
+    // Small random waves for texture
     const waves = [
-      { amp: H * 0.13, len: W * 0.9,  ph: Math.random() * 7 },
-      { amp: H * 0.07, len: W * 0.34, ph: Math.random() * 7 },
-      { amp: H * 0.035,len: W * 0.13, ph: Math.random() * 7 },
+      { amp: H * 0.055, len: W * 0.28, ph: Math.random() * 7 },
+      { amp: H * 0.028, len: W * 0.11, ph: Math.random() * 7 },
     ];
+
     for (let x = 0; x < W; x++) {
+      // Base rolling ground
       let y = base;
       for (const w of waves) y -= w.amp * Math.sin((x / w.len) * Math.PI * 2 + w.ph);
-      this.height[x] = Math.min(H - 10, Math.max(H * 0.30, y));
+
+      // Mountain bell curve added on top
+      const dx = (x - peakX) / peakW;
+      const mountain = peakH * Math.exp(-dx * dx * 2.2);
+      y -= mountain;
+
+      this.height[x] = Math.min(H - 10, Math.max(H * 0.12, y));
     }
   }
 

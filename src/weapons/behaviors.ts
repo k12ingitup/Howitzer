@@ -85,11 +85,7 @@ export function applyExplosion(
       damages.push(0);
     }
   }
-  if (weapon.kind === 'homing') {
-    spawnEnergyParticles(x, y, weapon.blastRadius, particles);
-  } else {
-    spawnExplosionParticles(x, y, weapon.blastRadius, particles);
-  }
+  spawnWeaponExplosion(x, y, weapon.kind, weapon.blastRadius, particles);
   return damages;
 }
 
@@ -149,6 +145,71 @@ export function spawnSmokePuff(
       hue: 'rgba(180,160,130,0.6)',
     });
   }
+}
+
+export function spawnWeaponExplosion(
+  x: number, y: number,
+  kind: string, radius: number,
+  particles: Particle[]
+): void {
+  const push = (...ps: Particle[]) => particles.push(...ps);
+  switch (kind) {
+    case 'single':
+      push(...spawnBurst(x,y,radius,['#ff9d63','#ffce6b','#ff4500','#fff'],22,0.32));
+      push(...spawnDebris(x,y,radius,'#b9853f',10)); break;
+    case 'cluster': case 'mirv':
+      push(...spawnBurst(x,y,radius,['#ffce6b','#fff','#ffaa00'],14,0.28)); break;
+    case 'napalm':
+      spawnFireParticles(x,y,radius,particles); return;
+    case 'homing':
+      spawnEnergyParticles(x,y,radius,particles); return;
+    case 'tunneler':
+      push(...spawnBurst(x,y,radius,['#8B5E3C','#b9853f','#ffce6b'],24,0.38));
+      push(...spawnDebris(x,y,radius,'#654321',14)); break;
+    case 'roller':
+      push(...spawnBurst(x,y,radius,['#86efac','#fff','#bbf7d0'],12,0.22));
+      spawnSmokePuff(x,y,particles,radius); return;
+    case 'bouncer':
+      push(...spawnBurst(x,y,radius,['#60a5fa','#fff','#93c5fd','#dbeafe'],16,0.35)); break;
+    case 'hailstorm':
+      push(...spawnBurst(x,y,radius,['#93c5fd','#fff','#bfdbfe'],10,0.20)); break;
+    case 'earthquake':
+      push(...spawnBurst(x,y,radius,['#fbbf24','#f59e0b','#fff','#b9853f'],20,0.30));
+      push(...spawnDebris(x,y,radius,'#8B5E3C',12)); break;
+    default:
+      push(...spawnBurst(x,y,radius,['#ffce6b','#ff7a3c','#fff'],18,0.28));
+  }
+}
+
+function spawnBurst(
+  x: number, y: number, radius: number,
+  colors: string[], count: number, speed: number,
+  particleArr?: Particle[]
+): Particle[] {
+  const out: Particle[] = [];
+  for (let i = 0; i < count + Math.floor(radius * 0.4); i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = (Math.random() * 0.6 + 0.4) * speed;
+    out.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s - 0.06,
+      life: 0.9 + Math.random()*0.6, r: Math.random()*4+1.5,
+      hue: colors[Math.floor(Math.random()*colors.length)] });
+  }
+  if (particleArr) particleArr.push(...out);
+  return out;
+}
+
+function spawnDebris(
+  x: number, y: number, radius: number, color: string, count: number
+): Particle[] {
+  const out: Particle[] = [];
+  for (let i = 0; i < count; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const s = (Math.random() * 0.5 + 0.2) * (radius / 40);
+    out.push({ x, y, vx: Math.cos(a)*s, vy: Math.sin(a)*s - 0.12,
+      life: 1.2 + Math.random()*0.6, r: Math.random()*6+3,
+      hue: color });
+  }
+  return out;
 }
 
 export function spawnEnergyParticles(
